@@ -1,0 +1,183 @@
+# AGENTS.md
+
+Guidance for AI coding assistants working in this repository. See `README.md` for what Hutarka is meant to do.
+
+## Status
+
+Pre-code. The repository holds the README and this file. No build commands exist yet; do not invent them. Update this file as soon as a decision below turns into code.
+
+## Who it is for
+
+One user, one machine: the author's Apple Silicon MacBook. Hutarka is **not distributed**. Never add anything whose only purpose is distribution: notarization, auto-update, installers, release CI, telemetry, crash reporting, onboarding for strangers.
+
+## Decisions
+
+- **Platform**: macOS 14.4+ on Apple Silicon only. No Windows, no Linux. Delete cross-platform branches (`cfg(windows)`, `cfg(target_os = "linux")`, X11/Wayland fallbacks) instead of keeping them compiling.
+- **Language**: Rust for all app logic. TypeScript only for the settings UI.
+- **Base**: a snapshot of [Handy](https://github.com/cjpais/Handy) (Tauri 2, Rust backend, React frontend), not a fork with history. We cut freely and do not track upstream.
+- **UI**: React + Tailwind from Handy, kept small. **English only**: remove i18next and translation files, write UI strings inline.
+- **No auto-update**: remove `tauri-plugin-updater` and the update checker.
+- **System audio capture**: Yogurt's `yogurt-audio` Swift helper used as a sidecar process, unchanged at first. Built with `swiftc` from the Command Line Tools (no Xcode project needed). Porting it to Rust (`objc2-*` crates) is a later, optional step.
+- **MCP server**: in Rust, local only, read-only, off by default. Ported from Yogurt's `app/src/main/mcp/server.ts`, plus a live `get_lines_since` tool reading the JSONL journal (see Storage).
+- **License**: undecided (both sources are MIT; MIT is the likely choice).
+- **No subscriptions by default**: Hutarka replaces a paid dictation app, so the default setup costs nothing beyond pay-per-use API calls. Speech recognition is **local by default**. A paid cloud ASR subscription is acceptable later if Whisper quality is not good enough (see "Speech engines").
+- **API keys**: stored in the app's settings (entered in the Settings window). Settings live in the app data directory, **never** in the open `~/Hutarka` folder, so keys are not synced or shared with the journals.
+
+## Non-goals
+
+Do not build these, even as options:
+
+- Automatic meeting detection, recording prompts when a call app starts, auto-stop. Recording is always started and stopped by hand.
+- Calendar integration (titles, attendees).
+- Automatic meeting summaries. Summaries are done on demand, by asking an AI client over MCP.
+- Anything visible to other call participants: no bot, no announcement. Muting the mic in the call app while dictating is the author's job, not Hutarka's.
+
+## Speech engines
+
+Speech recognition sits behind one engine interface (audio in, segments with timestamps out, batch and streaming), so engines can be swapped per mode and per meeting track.
+
+- **Local, primary**: Handy's `transcribe-cpp` (GGUF models) on Apple Silicon GPU via Metal. The model is chosen per language/mode, not one model for everything.
+
+Handy's catalog (`src-tauri/src/catalog/catalog.json`) carries benchmark word error rates (FLEURS test set, Q8_0, speed = times faster than real time on a Ryzen laptop with Vulkan; real speech and Apple Silicon will differ):
+
+| Model | ru | be | pl | en | speed |
+|---|---|---|---|---|---|
+| Whisper Large v3 | 4.96 | 43.78 | 4.69 | 4.03 | 2x |
+| GigaAM v3 E2E-RNN-T (Sber, MIT, Russian only, 221M) | 5.35 | — | — | — | 15x |
+| GigaAM v3 E2E-CTC | 5.53 | — | — | — | 35x |
+| Parakeet Ultra | 5.63 | — | 6.16 | 4.26 | 23x |
+| Whisper Large v3 Turbo | 5.93 | 50.65 | 5.81 | 4.38 | 3x |
+
+Conclusions to verify on the author's own voice:
+
+- **Russian**: GigaAM v3 E2E (already in Handy's catalog, ~270 MB) is nearly as accurate as Whisper Large v3 and 7-17x faster: the likely default for Russian dictation.
+- **Russian + Polish + English in one model**: Parakeet Ultra is a fast candidate.
+- **Belarusian is the weak spot**: no catalog model lists it except Whisper, and Whisper's error rate is 44-51%. Options to test: ElevenLabs Scribe (check its Belarusian support), or recognize with a Russian model and let the LLM restore Belarusian text. Belarusian is the most likely reason to need ElevenLabs.
+- **Apple SpeechAnalyzer** (`SpeechTranscriber`, Neural Engine, free, on-device): on this Mac (macOS 27.2) it supports English but **not Russian, Belarusian or Polish** (checked with `SpeechTranscriber.supportedLocales` on 2026-11-21). Useful only for English modes and English meetings; re-check the locale list after macOS updates.
+- **Cloud: ElevenLabs, designed in from the start.** Whisper quality (especially Belarusian) is the main technical risk, and ElevenLabs Scribe with the author's own key (possibly a paid subscription) is the planned answer. The client may be implemented later, but the engine interface is designed against both Whisper and ElevenLabs from day one: batch upload of a file, realtime streaming over WebSocket, network latency and failures, per-request cost, language hints. Engine choice is per mode and per meeting (live vs. after-meeting pass can use different engines), and a missing key or no network falls back to Whisper.
+- **Not used for translation**: Whisper's built-in translate-to-English (`translate_to_english` in Handy) is too low quality. All translation goes through the LLM step.
+
+## Modes
+
+The core dictation feature, modeled on Spokenly. A mode is:
+
+- a trigger: a key and a gesture. **Double-tap of a single key** (e.g. a modifier such as right Option) is required; hold and toggle are also supported. Handy has no double-tap; it is added in the shortcut layer.
+- a speech language (or auto-detect) and a speech model;
+- an optional LLM step: provider, model, prompt;
+- output: paste into the focused app.
+
+Required modes from day one: **translate to English**, **translate to Russian**, **translate to Belarusian**, and **clean dictation** (same language, corrected). A raw mode without LLM stays available as a fallback (no network, no key).
+
+The author's current Spokenly setup, to reproduce first (mode: trigger, instruction):
+
+- **English (default)**: Right ⌘. "Translate the dictated text to English (IT field)." The instruction carries domain context.
+- **Plain Russian**: Right ⌥. "The text will be in Russian; do nothing, only correct spelling errors." (= clean dictation)
+- **Belarusian**: Fn. Instruction written in Belarusian: the output must be in Belarusian.
+
+Implications for the shortcut layer:
+
+- **Single modifier keys as triggers, side-specific**: Right ⌘ and Right ⌥ must not fire on Left ⌘ / Left ⌥, and a tap must not fire when the key is used in a combo (⌘C). Handy's `handy-keys` names modifiers without a side (`command`, `option`, `fn`); left/right distinction has to be added. Fn is already supported.
+- A mode's instruction is free text written by the user in any language; Hutarka wraps it in a fixed system prompt (correct recognition errors, output only the result).
+- **Latency target**: Spokenly's "Fast" cleanup is under 1 s after release; its "Smart" translation is ~4 s. Hutarka aims for under 1 s for cleanup and translation with Haiku 5.5; measure it.
+- **Vocabulary matters**: Spokenly turned "Hutarka" into "hudorko". The user vocabulary (names, product names, terms) goes into the ASR prompt (Whisper initial prompt) and the LLM prompt.
+
+**Every mode corrects the recognition by default.** Raw ASR output has wrong letters, wrong word endings, misheard names and weak punctuation. The LLM step fixes these, the way Spokenly does:
+
+- Clean dictation: one call, prompt "fix recognition errors, endings, punctuation; do not rephrase or add anything".
+- Translation modes: one call that corrects and translates together (no separate cleanup call, to keep latency and cost down).
+- The prompt receives context that helps correction: the speech language, the user's vocabulary (names, terms; Handy's custom words list), and optionally the focused app's name.
+- Meetings: live lines stay raw (speed matters, and they are rewritten later); correction runs in the after-meeting "better pass", in batches of lines, and writes its own journal file.
+
+Translation goes through an LLM API with the author's own key, **Anthropic API by default** (Handy's `llm_client.rs` already speaks the Messages format). Model is per mode, Claude Haiku 5.5 (`claude-haiku-5-5`) is the expected default for translation: cheap and fast. Keep the request minimal for latency (short system prompt, low effort or thinking off where the model allows it). OpenAI-compatible endpoints (Ollama, etc.) stay supported for fully offline use.
+
+## App surfaces
+
+- **Menu bar icon** (Handy's `tray.rs`), the main entry point. Shows state (idle / dictating / recording a meeting). Quick menu:
+  - Paste last text, Copy last text (both: last result after LLM; a submenu offers the raw ASR text too). Handy already has "copy last transcript".
+  - Recent results: the last few dictations/translations, click to copy.
+  - **Record meeting** submenu with two choices: "Audio only" and "Live transcript" (see Meetings); Stop. The current meeting shows its title, duration and mode.
+  - **Transcribe file**: pick an audio/video file, get a transcript in History (Handy already decodes files via symphonia).
+  - Current mode list (which key triggers what), at a glance.
+  - Open History, Settings, Quit.
+  - Drop Handy's tray language submenu, update check and other distribution leftovers.
+- **History window**: one place for all records, read from the JSONL journals. Spokenly's History is the reference: filter chips (All, Dictation, Files, Meetings, one chip per mode), search, newest/oldest sort.
+  - Dictations: final text with the raw ASR text under it (dimmed), target app, age, recording duration; copy either text.
+  - An audio-only meeting not yet transcribed shows as such, with a "Transcribe" action.
+  - Meetings: list with title, date, duration; open one to read the transcript (live-updating while it records), copy or export as Markdown, open audio.
+  - Search across both.
+- **Settings window**: modes, engines, LLM keys, microphone, MCP toggle. Reuse Handy's settings components where they fit, delete the rest.
+- **Recording overlay**: Handy's streaming overlay while dictating: live text as you speak, timer, cancel button; plus the active mode's name.
+
+UI patterns taken from the upstream apps (seen in code and screenshots; still to be tried in the running apps):
+
+- Handy, shortcut behavior **Auto** (hold to record, or tap to toggle) next to Hold and Toggle; per mode, together with double-tap.
+- Handy, history entry actions: copy, star, **re-transcribe** (run again with another engine or mode; this is how Whisper and ElevenLabs get compared on the same audio), delete, inline audio player, "Open recordings folder" (opens `~/Hutarka`).
+- Handy, model picker with per-language quality grades, speed and size. Its catalog also has non-Whisper models (Qwen3-ASR, Cohere Transcribe, ...) worth testing for Russian and Belarusian before reaching for ElevenLabs.
+- Yogurt, tray while recording: "Recording · title", **Pause / Resume**, Finish; "Recent" submenu with the last 5 meetings.
+- Yogurt, meeting page: transcript that follows the latest line while live, find in transcript, Copy menu, **Resume recording** (continue the same meeting as a new part), audio player.
+- Yogurt, recording warnings surfaced to the user: no system audio, mic gone, device changed.
+- Yogurt's floating recording widget (always on top, over full-screen apps) is **not** taken by default: it is visible when sharing the whole screen. The menu bar icon is enough.
+
+## Meetings
+
+Two recording modes, chosen when a recording starts (default set in Settings):
+
+- **Audio only**: records mic and system audio to files (`me.m4a`, `them.m4a`), no ASR runs during the call. Near-zero CPU/GPU load. After the call: transcribe on demand from History or the menu bar, or automatically when the meeting ends (a setting).
+- **Live transcript**: same audio files, plus ASR while the call runs, journal lines appear live and are readable over MCP.
+- **Switching mid-call** from audio only to live is allowed: live transcription starts from now, and the part already recorded is transcribed from the file in the background (Yogurt calls this backfill).
+- Either way the audio file is the source of truth; the after-meeting "better pass" (full transcription plus LLM correction) runs from the files.
+- `yogurt-audio` already writes the files and streams PCM at the same time; in audio-only mode the PCM stream is simply not consumed.
+- MCP for an audio-only meeting reports it as recording / not transcribed instead of returning empty lines.
+
+## Storage
+
+Plain files, no database, in an **open folder `~/Hutarka`** so they are easy to browse, grep and open in an editor:
+
+```
+~/Hutarka/
+  meetings/2026-11-21_1430_<title>/   one folder per meeting
+    me.m4a, them.m4a                  audio (Yogurt's format)
+    live.jsonl                        lines written during the call (live mode)
+    final.jsonl                       after-meeting pass: full transcription + LLM correction
+  dictations/2026-11-21.jsonl         one file per day: dictations and translations
+  files/<date>_<name>/transcript.jsonl  results of "Transcribe file"
+```
+
+A meeting's audio stays next to its transcripts (one folder = one meeting, easy to move or delete). The layout is a starting point; change it here first if it changes.
+
+- **Transcripts are append-only JSONL journals**. One line = one transcript segment (`start_ms`, `end_ms`, `track`, `speaker`, `text`, `kind`: speech | dictation). The recorder appends; nothing rewrites a journal in place (a later "better pass" writes a separate file).
+- **Live MCP reads the journal directly**: `get_lines_since(meeting, cursor)` returns lines after a cursor (line number or byte offset) and the new cursor. Same code path for live and finished meetings.
+- **Search**: scan the files (personal scale, ripgrep-style); add an index only if it gets slow.
+- **Dictation during a meeting**: the mic track picks it up; Hutarka knows the hotkey intervals, so those lines get `kind: dictation` in the meeting journal.
+- **Settings**: Tauri store (JSON file) in the app data directory, as in Handy. Handy's SQLite history (`managers/history.rs`, `rusqlite`) is replaced by the JSONL journal.
+
+## Signing and macOS permissions
+
+No paid Apple Developer account. Locally built apps carry no quarantine attribute, so Gatekeeper and notarization do not apply.
+
+TCC permissions (Microphone, Accessibility, Input Monitoring, System Audio Recording) are bound to the code signature. Ad-hoc signing (`signingIdentity: "-"`, Handy's default) changes identity on every rebuild and silently breaks granted permissions. Sign with a **stable local identity** instead: a self-signed code-signing certificate from Keychain Access, or a free Apple Development certificate from a personal Apple ID team. Never switch back to ad-hoc.
+
+`Info.plist` must contain both `NSMicrophoneUsageDescription` and `NSAudioCaptureUsageDescription` (the second one is required for the Core Audio process tap prompt).
+
+If a permission still looks enabled but does not work after a rebuild: `tccutil reset <Service> <bundle id>`, relaunch, grant again.
+
+## Upstream sources
+
+Local clones for reading and copying code (both MIT):
+
+- `/opt/projects/Handy` (Handy v0.10.1). Dictation: hotkeys (`shortcut/`, `secure_input.rs`, `transcription_coordinator.rs`), paste (`clipboard.rs`, `paste_tx/`), isolated ASR worker (`engine_supervisor/`), LLM post-processing (`llm_client.rs`), pre-paste hook (`transcription_hook.rs`), settings (`settings.rs`).
+- `/opt/projects/yogurt` (Yogurt v0.3.54, Electron/TS). Meetings: `app/native/yogurt-audio/main.swift` (mic + process tap, JSON-lines + PCM protocol on stdout, documented at the top of the file), live pipeline `app/src/main/asr/pipeline.ts` (per-track queues, echo removal, hallucination filter), MCP `app/src/main/mcp/`, MCP stdio relay `app/native/yogurt-mcp/main.swift`.
+
+When code is copied from either project, keep its MIT copyright notice in `THIRD_PARTY_NOTICES.md`.
+
+Research notes live in `docs_/` (git-ignored, the author's scratch space).
+
+## Open questions
+
+Tracked in `README.md` ("Open questions"). The latency question (dictation must not wait behind meeting transcription) is answered by measurement on a real call, not by guessing: two ASR workers vs. one worker with dictation priority.
+
+## Conventions
+
+- Rust: `cargo fmt` and `cargo clippy` clean; explicit error handling, no `unwrap` outside tests.
+- Prefer deleting unused Handy code over feature-flagging it.
+- Commit messages in English.
