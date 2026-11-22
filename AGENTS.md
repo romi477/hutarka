@@ -4,7 +4,17 @@ Guidance for AI coding assistants working in this repository. See `README.md` fo
 
 ## Status
 
-Pre-code. The repository holds the README and this file. No build commands exist yet; do not invent them. Update this file as soon as a decision below turns into code.
+Step 01 done: the `hutarka` CLI and the `hutarka-llm` crate (Cargo workspace in `crates/`). The app itself does not exist yet.
+
+```bash
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo install --path crates/hutarka-cli   # installs ~/.cargo/bin/hutarka
+```
+
+Work goes in steps, each planned and closed in `docs_/steps/` (see `docs_/steps/README.md`).
+
+Documentation layout: `docs/` is reserved for official documentation of the finished app. Everything intermediate (research, step plans, notes) lives in `docs_/`, which is git-ignored and never committed.
 
 ## Who it is for
 
@@ -14,6 +24,7 @@ One user, one machine: the author's Apple Silicon MacBook. Hutarka is **not dist
 
 - **Platform**: macOS 14.4+ on Apple Silicon only. No Windows, no Linux. Delete cross-platform branches (`cfg(windows)`, `cfg(target_os = "linux")`, X11/Wayland fallbacks) instead of keeping them compiling.
 - **Language**: Rust for all app logic. TypeScript only for the settings UI.
+- **Layout**: Cargo workspace: the LLM core crate, the `hutarka` CLI binary, and the Tauri app (from Handy). The Swift `yogurt-audio` helper sits beside them.
 - **Base**: a snapshot of [Handy](https://github.com/cjpais/Handy) (Tauri 2, Rust backend, React frontend), not a fork with history. We cut freely and do not track upstream.
 - **UI**: React + Tailwind from Handy, kept small. **English only**: remove i18next and translation files, write UI strings inline.
 - **No auto-update**: remove `tauri-plugin-updater` and the update checker.
@@ -90,6 +101,42 @@ Implications for the shortcut layer:
 
 Translation goes through an LLM API with the author's own key, **Anthropic API by default** (Handy's `llm_client.rs` already speaks the Messages format). Model is per mode, Claude Haiku 5.5 (`claude-haiku-5-5`) is the expected default for translation: cheap and fast. Keep the request minimal for latency (short system prompt, low effort or thinking off where the model allows it). OpenAI-compatible endpoints (Ollama, etc.) stay supported for fully offline use.
 
+## LLM core and CLI
+
+Dictation modes, the selection translator and meeting correction all do the same thing: text in, text out through an LLM. The request itself lives in **one Rust library crate** (working name `hutarka-llm`): providers (Anthropic first, OpenAI-compatible), API key lookup, streaming, errors and timeouts.
+
+**No prompts are hard-coded in the core, and the CLI has exactly one, documented below (`--to`).** The core is pure transport: it sends exactly the prompt, model and text it is given. Every instruction (translate to English, clean up Russian, dictionary entry for a word) is data:
+
+- in the app: stored in Settings (each mode's prompt, the selection translator's prompts), editable, with sensible starting values written into the default settings file, not into code;
+- in the CLI: passed explicitly as flags on every call.
+
+**CLI binary** (`hutarka`), a small standalone binary. It works whether or not the app is running: it never talks to the app, needs no daemon, and reads nothing from the app's files. Each call is one short process (request, answer, exit):
+
+```
+hutarka --prompt "Translate to English. IT field. Output only the translation." "текст"
+pbpaste | hutarka --prompt "Correct spelling errors in this Russian text. Output only the text."
+hutarka --model claude-sonnet-5-5 --prompt "..." < notes.txt
+hutarka --to en "текст"                  # plain literal translation
+```
+
+- `--prompt`: the system prompt, sent as is. Input text: the positional argument, or stdin.
+- `--to <lang>`: plain one-to-one translation with no extra processing. It sends one fixed minimal prompt, printed verbatim by `hutarka --help` so nothing is hidden: `Translate the text to <lang>. Output only the translation.` (lang: `en`, `ru`, `be`, `pl` or any language name). `--to` and `--prompt` are mutually exclusive; exactly one is required.
+- `--model` (optional, default `claude-haiku-5-5`). No other hidden settings.
+- Key: `HUTARKA_API_KEY` environment variable. No `--key` flag: keys on the command line end up in shell history and `ps`.
+- Output is the model's text only, so it composes in pipes and shell aliases (an alias or script is where a reusable prompt lives on the shell side).
+- Built first, before the app: it is tiny and immediately tests prompt quality and Haiku latency on real text.
+
+## Selection translator
+
+A replacement for Reverso Context: select text anywhere, press a hotkey, a popup shows the translation.
+
+- **Getting the selection**: Accessibility API (`AXSelectedText` of the focused element) first; fallback: save clipboard, send ⌘C, read, restore (Handy's clipboard code). Works in native apps, PDFs, browsers (fallback path).
+- **Word vs. text**: a single word or short phrase gets a dictionary-style answer (meanings with part of speech, a few example sentences, common collocations), longer text gets a plain translation. Decided by length; two prompts, both stored in Settings.
+- **Direction**: automatic. Selection in English → Russian; anything else → English. Overridable in Settings; a second hotkey or a popup button switches the target (en / ru / be / pl).
+- **Popup**: small non-activating panel near the mouse, does not steal focus; streams the answer as it arrives; Copy and "Replace selection" (paste the translation over the selection in editable fields); Esc or click outside closes it.
+- **Hotkey**: its own trigger in the shortcut layer, same options as modes (key combo, single key, double-tap).
+- Results are written to the History journal (`kind: lookup`) so looked-up words can be reviewed later.
+
 ## App surfaces
 
 - **Menu bar icon** (Handy's `tray.rs`), the main entry point. Shows state (idle / dictating / recording a meeting). Quick menu:
@@ -140,6 +187,7 @@ Plain files, no database, in an **open folder `~/Hutarka`** so they are easy to 
     live.jsonl                        lines written during the call (live mode)
     final.jsonl                       after-meeting pass: full transcription + LLM correction
   dictations/2026-11-21.jsonl         one file per day: dictations and translations
+  lookups/2026-11-21.jsonl            one file per day: selection translator results
   files/<date>_<name>/transcript.jsonl  results of "Transcribe file"
 ```
 
@@ -170,7 +218,7 @@ Local clones for reading and copying code (both MIT):
 
 When code is copied from either project, keep its MIT copyright notice in `THIRD_PARTY_NOTICES.md`.
 
-Research notes live in `docs_/` (git-ignored, the author's scratch space).
+Research notes and step plans live in `docs_/` (git-ignored, the author's scratch space).
 
 ## Open questions
 
