@@ -132,8 +132,11 @@ A replacement for Reverso Context: select text anywhere, press a hotkey, a popup
 
 - **Getting the selection**: Accessibility API (`AXSelectedText` of the focused element) first; fallback: save clipboard, send ⌘C, read, restore (Handy's clipboard code). Works in native apps, PDFs, browsers (fallback path).
 - **Word vs. text**: a single word or short phrase gets a dictionary-style answer (meanings with part of speech, a few example sentences, common collocations), longer text gets a plain translation. Decided by length; two prompts, both stored in Settings.
-- **Direction**: automatic. Selection in English → Russian; anything else → English. Overridable in Settings; a second hotkey or a popup button switches the target (en / ru / be / pl).
-- **Popup**: small non-activating panel near the mouse, does not steal focus; streams the answer as it arrives; Copy and "Replace selection" (paste the translation over the selection in editable fields); Esc or click outside closes it.
+- **Languages**: English, Polish, Russian. Directions: EN → RU (default for English), EN → PL, PL → EN, RU → EN.
+- **Direction**: automatic. English selection → Russian; Polish or Russian → English. The popup's direction button opens a menu of the four directions; the last manual choice for English (RU or PL) is remembered.
+- **Explain**: a checkbox in the popup (⌘E), remembered between lookups. On, the answer is a deep explanation instead of a plain translation: for a word, meanings plus several common sentences using it, each with a translation, to learn how it is used in context; for a phrase, its idioms and grammar. One more prompt, stored in Settings.
+- **Prompts are editable in Settings › Translator**: one translation prompt per direction (four), plus the word-lookup prompt and the Explain prompt, which take `{from}` and `{to}` placeholders. Starting values live in the default settings file. The menu bar has "Translator prompts…", which opens that pane.
+- **Popup**: variant A of the mockups. Small non-activating panel near the mouse, does not steal focus; header with the direction button and model/latency; streams the answer as it arrives; footer with Copy (⌘C), Replace (↵: paste the translation over the selection in editable fields) and the Explain checkbox; Esc or click outside closes it. Follows the system light/dark theme.
 - **Hotkey**: its own trigger in the shortcut layer, same options as modes (key combo, single key, double-tap).
 - Results are written to the History journal (`kind: lookup`) so looked-up words can be reviewed later.
 
@@ -145,7 +148,7 @@ A replacement for Reverso Context: select text anywhere, press a hotkey, a popup
   - **Record meeting** submenu with two choices: "Audio only" and "Live transcript" (see Meetings); Stop. The current meeting shows its title, duration and mode.
   - **Transcribe file**: pick an audio/video file, get a transcript in History (Handy already decodes files via symphonia).
   - Current mode list (which key triggers what), at a glance.
-  - Open History, Settings, Quit.
+  - Open History, Settings, Translator prompts…, Quit.
   - Drop Handy's tray language submenu, update check and other distribution leftovers.
 - **History window**: one place for all records, read from the JSONL journals. Spokenly's History is the reference: filter chips (All, Dictation, Files, Meetings, one chip per mode), search, newest/oldest sort.
   - Dictations: final text with the raw ASR text under it (dimmed), target app, age, recording duration; copy either text.
