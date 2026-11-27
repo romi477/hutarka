@@ -2,6 +2,10 @@ use std::time::Duration;
 
 use serde_json::Value;
 
+use futures_util::StreamExt;
+
+use crate::request::{build_stream_body, check_stop};
+use crate::sse::{SseEvent, SseParser};
 use crate::{Error, Request, build_body, parse_response};
 
 const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
@@ -65,6 +69,54 @@ impl Client {
         let json: Value =
             serde_json::from_str(&body).map_err(|e| Error::BadResponse(e.to_string()))?;
         parse_response(&json)
+    }
+
+    /// Sends one streamed request: `on_text` gets each piece of text as it
+    /// arrives; returns the whole text once the answer ends normally.
+    pub async fn stream<F: FnMut(&str)>(
+        &self,
+        req: &Request,
+        mut on_text: F,
+    ) -> Result<String, Error> {
+        let response = self
+            .http
+            .post(format!("{}/v1/messages", self.base_url))
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", API_VERSION)
+            .json(&build_stream_body(req))
+            .send()
+            .await
+            .map_err(network_error)?;
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.map_err(network_error)?;
+            return Err(Error::Api {
+                status: status.as_u16(),
+                message: api_message(status, &body),
+            });
+        }
+        let mut parser = SseParser::default();
+        let mut text = String::new();
+        let mut stop: Option<String> = None;
+        let mut bytes = response.bytes_stream();
+        while let Some(chunk) = bytes.next().await {
+            for event in parser.push(&chunk.map_err(network_error)?) {
+                match event {
+                    SseEvent::TextDelta(piece) => {
+                        on_text(&piece);
+                        text.push_str(&piece);
+                    }
+                    SseEvent::Stop(reason) => stop = reason.or(stop),
+                    SseEvent::Error(message) => return Err(Error::Stream(message)),
+                    SseEvent::Other => {}
+                }
+            }
+        }
+        check_stop(stop.as_deref())?;
+        if text.is_empty() {
+            return Err(Error::Empty);
+        }
+        Ok(text)
     }
 }
 

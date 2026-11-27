@@ -65,18 +65,30 @@ pub fn build_body(req: &Request) -> Value {
 /// The answer's text: every `text` block joined, other blocks skipped.
 /// Only a normal finish (`end_turn`, `stop_sequence`) counts: a refusal or any
 /// other stop reason is an error, never a partial result.
+/// The body of a streamed request: `build_body` plus `"stream": true`.
+pub fn build_stream_body(req: &Request) -> Value {
+    let mut body = build_body(req);
+    body["stream"] = Value::Bool(true);
+    body
+}
+
+/// Only a natural end counts as a complete answer.
+pub(crate) fn check_stop(reason: Option<&str>) -> Result<(), Error> {
+    match reason {
+        Some("end_turn" | "stop_sequence") => Ok(()),
+        Some("refusal") => Err(Error::Refusal),
+        Some("max_tokens") => Err(Error::Truncated),
+        Some(other) => Err(Error::Stopped(other.to_string())),
+        None => Err(Error::Stopped("none".into())),
+    }
+}
+
 pub fn parse_response(body: &Value) -> Result<String, Error> {
     let content = body
         .get("content")
         .and_then(Value::as_array)
         .ok_or_else(|| Error::BadResponse("no content array".into()))?;
-    match body.get("stop_reason").and_then(Value::as_str) {
-        Some("end_turn" | "stop_sequence") => {}
-        Some("refusal") => return Err(Error::Refusal),
-        Some("max_tokens") => return Err(Error::Truncated),
-        Some(other) => return Err(Error::Stopped(other.to_string())),
-        None => return Err(Error::Stopped("none".into())),
-    }
+    check_stop(body.get("stop_reason").and_then(Value::as_str))?;
     let text: String = content
         .iter()
         .filter(|block| block.get("type").and_then(Value::as_str) == Some("text"))
