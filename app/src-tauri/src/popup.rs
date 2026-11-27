@@ -43,6 +43,7 @@ pub struct Anchor(Mutex<Placed>);
 pub struct Placed {
     mouse: Option<PhysicalPosition<f64>>,
     dragged: bool,
+    side: Side,
 }
 
 /// A monitor's work area, physical pixels.
@@ -54,32 +55,45 @@ struct Area {
     bottom: f64,
 }
 
-/// Top-left corner for a window of `size`. Not moved by the user: below-right
-/// of the mouse, flipped above it when there is no room below. Moved: where
-/// the user dropped it, shifted up if it grew past the bottom. Always inside
-/// the area as far as the size allows.
+/// Which side of the mouse the popup keeps while it is open.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+enum Side {
+    /// Just shown: pick below, or above when there is no room below.
+    #[default]
+    Fresh,
+    /// Top edge just under the mouse; grows down, shifts up at the screen bottom.
+    Below,
+    /// Bottom edge just above the mouse; grows up.
+    Above,
+    /// Dragged by the user: top-left where it was dropped.
+    Dropped(f64, f64),
+}
+
+/// Top-left corner for a window of `size`, and the side to keep from now on.
+/// The side is chosen once, when the popup is shown, so later height changes
+/// (streaming, the direction menu) never make it jump across the mouse.
+/// Always inside the area as far as the size allows.
 fn origin(
     mouse: (f64, f64),
-    dropped: Option<(f64, f64)>,
+    side: Side,
     size: (f64, f64),
     gap: f64,
     area: Area,
-) -> (f64, f64) {
+) -> ((f64, f64), Side) {
     let (w, h) = size;
-    let (mut x, mut y) = match dropped {
-        Some(pos) => pos,
-        None => (mouse.0 + gap, mouse.1 + gap),
+    let below = mouse.1 + gap;
+    let side = match side {
+        Side::Fresh if below + h > area.bottom => Side::Above,
+        Side::Fresh => Side::Below,
+        kept => kept,
     };
-    if x + w > area.right {
-        x = area.right - w;
-    }
-    if y + h > area.bottom {
-        y = match dropped {
-            Some(_) => area.bottom - h,
-            None => mouse.1 - gap - h,
-        };
-    }
-    (x.max(area.left), y.max(area.top))
+    let (x, y) = match side {
+        Side::Dropped(x, y) => (x, y.min(area.bottom - h)),
+        Side::Above => (mouse.0 + gap, mouse.1 - gap - h),
+        _ => (mouse.0 + gap, below.min(area.bottom - h)),
+    };
+    let x = x.min(area.right - w);
+    ((x.max(area.left), y.max(area.top)), side)
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
@@ -119,6 +133,7 @@ pub fn show_near_cursor(app: &AppHandle) {
         *placed = Placed {
             mouse: Some(cursor),
             dragged: false,
+            side: Side::Fresh,
         };
     }
     place(app, INITIAL_HEIGHT);
@@ -161,7 +176,7 @@ fn place(app: &AppHandle, height: f64) {
         return;
     };
     let anchor = app.state::<Anchor>();
-    let Ok(placed) = anchor.0.lock() else {
+    let Ok(mut placed) = anchor.0.lock() else {
         return;
     };
     let Some(mouse) = placed.mouse else {
@@ -185,13 +200,13 @@ fn place(app: &AppHandle, height: f64) {
     };
     let height = height.min(work.size.height as f64 / scale);
     let current = window.outer_position().ok();
-    let dropped = match (placed.dragged, current) {
-        (true, Some(now)) => Some((now.x as f64, now.y as f64)),
-        _ => None,
+    let side = match (placed.dragged, current) {
+        (true, Some(now)) => Side::Dropped(now.x as f64, now.y as f64),
+        _ => placed.side,
     };
-    let (x, y) = origin(
+    let ((x, y), side) = origin(
         (mouse.x, mouse.y),
-        dropped,
+        side,
         (WIDTH * scale, height * scale),
         OFFSET * scale,
         area,
@@ -205,6 +220,7 @@ fn place(app: &AppHandle, height: f64) {
         height,
     }));
     let _ = window.set_position(Position::Physical(pos));
+    placed.side = side;
 }
 
 #[cfg(test)]
@@ -217,52 +233,56 @@ mod tests {
         right: 1000.0,
         bottom: 800.0,
     };
+    const SIZE: (f64, f64) = (400.0, 300.0);
 
     #[test]
-    fn opens_below_right_of_mouse() {
+    fn fresh_opens_below_right_of_mouse() {
         assert_eq!(
-            origin((100.0, 100.0), None, (400.0, 300.0), 8.0, AREA),
-            (108.0, 108.0)
+            origin((100.0, 100.0), Side::Fresh, SIZE, 8.0, AREA),
+            ((108.0, 108.0), Side::Below)
         );
     }
 
     #[test]
-    fn opens_above_when_no_room_below() {
+    fn fresh_opens_above_when_no_room_below() {
         assert_eq!(
-            origin((100.0, 700.0), None, (400.0, 300.0), 8.0, AREA),
-            (108.0, 392.0)
+            origin((100.0, 700.0), Side::Fresh, SIZE, 8.0, AREA),
+            ((108.0, 392.0), Side::Above)
         );
     }
 
     #[test]
-    fn taller_than_room_above_sticks_to_top() {
+    fn above_taller_than_room_sticks_to_top() {
+        let (pos, _) = origin((100.0, 300.0), Side::Above, (400.0, 700.0), 8.0, AREA);
+        assert_eq!(pos, (108.0, 0.0));
+    }
+
+    #[test]
+    fn below_growing_past_bottom_shifts_up_instead_of_flipping() {
+        // The direction menu adds height: the popup must not jump above the mouse.
         assert_eq!(
-            origin((100.0, 300.0), None, (400.0, 700.0), 8.0, AREA),
-            (108.0, 0.0)
+            origin((100.0, 500.0), Side::Below, (400.0, 400.0), 8.0, AREA),
+            ((108.0, 400.0), Side::Below)
         );
     }
 
     #[test]
-    fn moved_by_user_stays_where_dropped() {
-        let pos = origin(
-            (100.0, 100.0),
-            Some((500.0, 200.0)),
-            (400.0, 300.0),
-            8.0,
-            AREA,
+    fn above_keeps_its_bottom_next_to_the_mouse() {
+        assert_eq!(
+            origin((100.0, 700.0), Side::Above, (400.0, 200.0), 8.0, AREA),
+            ((108.0, 492.0), Side::Above)
         );
+    }
+
+    #[test]
+    fn dropped_stays_where_dropped() {
+        let (pos, _) = origin((100.0, 100.0), Side::Dropped(500.0, 200.0), SIZE, 8.0, AREA);
         assert_eq!(pos, (500.0, 200.0));
     }
 
     #[test]
-    fn moved_by_user_grows_up_at_the_bottom() {
-        let pos = origin(
-            (100.0, 100.0),
-            Some((500.0, 600.0)),
-            (400.0, 300.0),
-            8.0,
-            AREA,
-        );
+    fn dropped_grows_up_at_the_bottom() {
+        let (pos, _) = origin((100.0, 100.0), Side::Dropped(500.0, 600.0), SIZE, 8.0, AREA);
         assert_eq!(pos, (500.0, 500.0));
     }
 }
