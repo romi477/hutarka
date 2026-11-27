@@ -14,7 +14,7 @@ use crate::journal::{LookupRecord, append_lookup, journal_root};
 use crate::selection::{SelectionError, read_selection};
 use crate::session::Sessions;
 use crate::settings::{self, Settings, build_request};
-use crate::translator::{Direction, Kind, Lang, auto_direction, kind_for, prepare_text};
+use crate::translator::{Direction, Kind, Lang, TextError, auto_direction, kind_for, prepare_text};
 use crate::{paste, popup};
 
 /// Why a lookup produced no answer; the popup picks its message and button.
@@ -23,7 +23,6 @@ use crate::{paste, popup};
 pub enum ErrorKind {
     NoKey,
     NotTrusted,
-    Nothing,
     TooLong,
     Api,
 }
@@ -52,6 +51,9 @@ pub struct Snapshot {
     pub ms: u64,
     pub error_kind: Option<ErrorKind>,
     pub error: String,
+    /// The text came from a selection (Replace can paste over it), not typed
+    /// into the popup.
+    pub from_selection: bool,
 }
 
 pub struct AppState {
@@ -75,6 +77,7 @@ impl AppState {
             ms: 0,
             error_kind: None,
             error: String::new(),
+            from_selection: false,
         };
         AppState {
             sessions: Sessions::default(),
@@ -143,36 +146,72 @@ pub fn trigger(app: &AppHandle) {
         let selection = read_selection(&app);
         let state = app.state::<AppState>();
         let settings = state.settings();
-        match selection
-            .map_err(|e| match e {
-                SelectionError::NotTrusted => (
+        match selection {
+            Err(SelectionError::NotTrusted) => {
+                log::info!("lookup not started: no Accessibility permission");
+                popup::show_near_cursor(&app);
+                fail(
+                    &app,
                     ErrorKind::NotTrusted,
                     "Hutarka needs Accessibility permission to read the selection.".to_string(),
-                ),
-                SelectionError::Nothing => (ErrorKind::Nothing, "Nothing selected".to_string()),
-            })
-            .and_then(|raw| {
-                prepare_text(&raw).map_err(|e| {
-                    let kind = match e {
-                        crate::translator::TextError::Blank => ErrorKind::Nothing,
-                        crate::translator::TextError::TooLong(_) => ErrorKind::TooLong,
-                    };
-                    (kind, e.to_string())
-                })
-            }) {
-            Ok(text) => {
-                let dir = auto_direction(&text, settings.english_target);
-                let kind = kind_for(&text, settings.explain);
-                popup::show_near_cursor(&app);
-                start(&app, text, dir, kind);
+                );
             }
-            Err((kind, message)) => {
-                log::info!("lookup not started: {kind:?}");
-                popup::show_near_cursor(&app);
-                fail(&app, kind, message);
-            }
+            Err(SelectionError::Nothing) => compose(&app),
+            Ok(raw) => match prepare_text(&raw) {
+                Ok(text) => {
+                    let (dir, kind) = plan(&text, None, settings.english_target, settings.explain);
+                    popup::show_near_cursor(&app);
+                    start(&app, text, dir, kind, true);
+                }
+                Err(TextError::Blank) => compose(&app),
+                Err(e @ TextError::TooLong(_)) => {
+                    popup::show_near_cursor(&app);
+                    fail(&app, ErrorKind::TooLong, e.to_string());
+                }
+            },
         }
     });
+}
+
+/// Direction and kind of a lookup: the given direction, or detected.
+fn plan(
+    text: &str,
+    direction: Option<Direction>,
+    english_target: Lang,
+    explain: bool,
+) -> (Direction, Kind) {
+    let dir = direction.unwrap_or_else(|| auto_direction(text, english_target));
+    (dir, kind_for(text, explain))
+}
+
+/// Opens the popup with an empty source field to type into.
+pub fn compose(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    state.abort_task();
+    let id = state.sessions.begin();
+    let explain = state.settings().explain;
+    let direction = state
+        .snapshot()
+        .map(|s| s.direction)
+        .unwrap_or(Direction::EnRu);
+    popup::show_near_cursor(app);
+    state.reset(
+        app,
+        Snapshot {
+            id,
+            status: Status::Idle,
+            text: String::new(),
+            direction,
+            kind: Kind::Text,
+            explain,
+            result: String::new(),
+            model: String::new(),
+            ms: 0,
+            error_kind: None,
+            error: String::new(),
+            from_selection: false,
+        },
+    );
 }
 
 /// A lookup that ends before any request (no selection, no permission).
@@ -199,12 +238,13 @@ fn fail(app: &AppHandle, kind: ErrorKind, message: String) {
             ms: 0,
             error_kind: Some(kind),
             error: message,
+            from_selection: false,
         },
     );
 }
 
 /// Starts (or restarts) a lookup of `text`; any running one is cancelled.
-pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
+pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind, from_selection: bool) {
     let state = app.state::<AppState>();
     state.abort_task();
     let id = state.sessions.begin();
@@ -224,6 +264,7 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
             ms: 0,
             error_kind: None,
             error: String::new(),
+            from_selection,
         },
     );
     log::info!(
@@ -317,16 +358,43 @@ pub fn rerun(app: AppHandle, direction: Direction, explain: bool) {
             s.english_target = direction.to();
         }
     });
-    let text = app
-        .state::<AppState>()
-        .snapshot()
-        .map(|s| s.text)
-        .unwrap_or_default();
-    if text.is_empty() {
+    let Some(snap) = app.state::<AppState>().snapshot() else {
+        return;
+    };
+    if snap.text.is_empty() {
         return;
     }
-    let kind = kind_for(&text, explain);
-    start(&app, text, direction, kind);
+    let kind = kind_for(&snap.text, explain);
+    start(&app, snap.text, direction, kind, snap.from_selection);
+}
+
+/// Translates text typed (or edited) in the popup; `direction` None detects it.
+/// `from_selection`: the edited text still stands for a selection Replace can paste over.
+#[tauri::command]
+pub fn translate_text(
+    app: AppHandle,
+    text: String,
+    direction: Option<Direction>,
+    explain: bool,
+    from_selection: bool,
+) -> Result<(), String> {
+    let text = match prepare_text(&text) {
+        Ok(text) => text,
+        Err(TextError::Blank) => return Ok(()),
+        Err(e) => return Err(e.to_string()),
+    };
+    save_settings(&app, |s| {
+        s.explain = explain;
+        if let Some(d) = direction
+            && d.from() == Lang::En
+        {
+            s.english_target = d.to();
+        }
+    });
+    let settings = app.state::<AppState>().settings();
+    let (dir, kind) = plan(&text, direction, settings.english_target, explain);
+    start(&app, text, dir, kind, from_selection);
+    Ok(())
 }
 
 #[tauri::command]
@@ -391,6 +459,32 @@ pub fn open_accessibility(app: AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_text_without_direction_detects_it() {
+        assert_eq!(
+            plan("привет", None, Lang::Ru, false),
+            (Direction::RuEn, Kind::Word)
+        );
+        assert_eq!(
+            plan("hello there", None, Lang::Pl, false),
+            (Direction::EnPl, Kind::Word)
+        );
+    }
+
+    #[test]
+    fn typed_text_keeps_a_chosen_direction() {
+        let text = "This is a longer sentence. It is text.";
+        assert_eq!(
+            plan(text, Some(Direction::EnPl), Lang::Ru, false),
+            (Direction::EnPl, Kind::Text)
+        );
+    }
+
+    #[test]
+    fn explain_wins_over_length() {
+        assert_eq!(plan("leverage", None, Lang::Ru, true).1, Kind::Explain);
+    }
 
     fn snapshot_for(state: &AppState, id: u64) -> Snapshot {
         let mut s = state.snapshot().expect("snapshot");

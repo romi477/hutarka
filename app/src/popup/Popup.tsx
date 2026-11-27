@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { DIRECTIONS, popup, type Direction, type Snapshot } from "@/lib/api";
 import { DirectionMenu } from "./DirectionMenu";
+import { SourceCell } from "./SourceCell";
 
 /** Room around the card for its shadow; matches the window width (560 = 520 + 2 × 20). */
 const MARGIN = 20;
@@ -11,21 +18,30 @@ const CHROME_HEIGHT = 140;
 const ERROR_TITLES: Record<string, string> = {
   no_key: "No Anthropic API key",
   not_trusted: "Accessibility permission needed",
-  nothing: "Nothing selected",
-  too_long: "Selection too long",
+  too_long: "Text too long",
   api: "The translation failed",
 };
 
 const ERROR_HINTS: Record<string, string> = {
-  no_key: "Add your key in Settings › LLM to translate. It is stored in app settings, not in ~/Hutarka.",
+  no_key:
+    "Add your key in Settings › LLM to translate. It is stored in app settings, not in ~/Hutarka.",
   not_trusted:
     "Allow Hutarka in System Settings › Privacy & Security › Accessibility, then try again.",
-  nothing: "Select some text in any app, then press the hotkey.",
 };
 
 function Arrow() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M2 6h8M7 3l3 3-3 3" />
     </svg>
   );
@@ -34,7 +50,25 @@ function Arrow() {
 export function Popup() {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [menu, setMenu] = useState(false);
+  /** The source text as edited in the popup. */
+  const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(false);
+  const [inputError, setInputError] = useState("");
+  /** The next lookup comes from our own Translate: keep the source cell as it is. */
+  const ownRun = useRef(false);
   const wrapper = useRef<HTMLDivElement>(null);
+
+  // A new lookup: show its text in the source cell, collapsed for a selection,
+  // open (to type) for an empty popup.
+  const lookupId = snap?.id;
+  useEffect(() => {
+    if (!snap) return;
+    setDraft(snap.text);
+    setInputError("");
+    if (ownRun.current) ownRun.current = false;
+    else setOpen(!snap.from_selection);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookupId]);
 
   useEffect(() => {
     popup.snapshot().then((s) => s && setSnap(s));
@@ -51,24 +85,54 @@ export function Popup() {
   useLayoutEffect(() => {
     const el = wrapper.current;
     if (!el) return;
-    const send = () => popup.resize(Math.ceil(el.offsetHeight + (menu ? MENU_HEIGHT : 0)));
+    const send = () =>
+      popup.resize(Math.ceil(el.offsetHeight + (menu ? MENU_HEIGHT : 0)));
     send();
     const observer = new ResizeObserver(send);
     observer.observe(el);
     return () => observer.disconnect();
   }, [menu]);
 
-  const rerun = useCallback(
-    (direction: Direction, explain: boolean) => {
+  /**
+   * Runs the lookup again: the edited source text if it changed (direction
+   * null = detect), otherwise the same text with this direction / Explain.
+   */
+  const run = useCallback(
+    (direction: Direction | null, explain: boolean) => {
+      if (!snap) return;
       setMenu(false);
-      popup.rerun(direction, explain);
+      const edited = draft.trim() !== "" && draft !== snap.text;
+      if (edited) {
+        ownRun.current = true;
+        popup
+          .translate(draft, direction, explain, snap.from_selection)
+          .catch((e) => {
+            ownRun.current = false;
+            setInputError(String(e));
+          });
+      } else if (snap.text) {
+        popup.rerun(direction ?? snap.direction, explain);
+      }
     },
-    [],
+    [snap, draft],
   );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!snap) return;
+      const typing = (e.target as HTMLElement | null)?.tagName === "TEXTAREA";
+      if (typing && e.key === "Enter" && e.metaKey) {
+        e.preventDefault();
+        run(null, snap.explain);
+        return;
+      }
+      // Inside the source field, plain keys and ⌘C / ⌘V edit text.
+      if (
+        typing &&
+        e.key !== "Escape" &&
+        !(e.metaKey && "e1234".includes(e.key.toLowerCase()))
+      )
+        return;
       if (e.key === "Escape") {
         e.preventDefault();
         if (menu) setMenu(false);
@@ -79,27 +143,35 @@ export function Popup() {
           e.preventDefault();
           popup.copy();
         }
-      } else if (e.key === "Enter" && snap.status === "done") {
+      } else if (
+        e.key === "Enter" &&
+        snap.status === "done" &&
+        snap.from_selection
+      ) {
         e.preventDefault();
         popup.replace();
-      } else if (e.metaKey && e.key.toLowerCase() === "e" && snap.text) {
+      } else if (e.metaKey && e.key.toLowerCase() === "e") {
         e.preventDefault();
-        rerun(snap.direction, !snap.explain);
-      } else if (e.metaKey && ["1", "2", "3", "4"].includes(e.key) && snap.text) {
+        run(snap.text || draft.trim() ? snap.direction : null, !snap.explain);
+      } else if (e.metaKey && ["1", "2", "3", "4"].includes(e.key)) {
         e.preventDefault();
-        rerun(DIRECTIONS[Number(e.key) - 1].id, snap.explain);
+        run(DIRECTIONS[Number(e.key) - 1].id, snap.explain);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [snap, menu, rerun]);
+  }, [snap, menu, run, draft]);
 
   if (!snap) return null;
 
   const dir = DIRECTIONS.find((d) => d.id === snap.direction) ?? DIRECTIONS[0];
   const streaming = snap.status === "streaming";
   const done = snap.status === "done";
-  const showsWord = snap.kind !== "text" && snap.text.trim().length <= 60;
+  const showsWord =
+    snap.from_selection &&
+    snap.kind !== "text" &&
+    snap.text.trim().length <= 60;
+  const hasAnswer = snap.result !== "" || streaming || done;
 
   return (
     <div ref={wrapper} style={{ padding: MARGIN }}>
@@ -120,12 +192,21 @@ export function Popup() {
             <div
               data-tauri-drag-region
               onMouseDown={(e) => {
-                if ((e.target as HTMLElement).hasAttribute("data-tauri-drag-region")) popup.dragged();
+                if (
+                  (e.target as HTMLElement).hasAttribute(
+                    "data-tauri-drag-region",
+                  )
+                )
+                  popup.dragged();
               }}
               className="flex cursor-grab items-center gap-2 pt-2.5 pr-2.5 pl-3.5"
             >
               {showsWord && (
-                <span data-tauri-drag-region className="truncate text-[17px] font-semibold" style={{ maxWidth: 200 }}>
+                <span
+                  data-tauri-drag-region
+                  className="truncate text-[17px] font-semibold"
+                  style={{ maxWidth: 200 }}
+                >
                   {snap.text.trim()}
                 </span>
               )}
@@ -136,44 +217,80 @@ export function Popup() {
                   aria-expanded={menu}
                   onClick={() => setMenu(!menu)}
                   className="flex h-6 items-center gap-1 rounded-md px-2 text-[12px] font-medium"
-                  style={{ background: menu ? "var(--chip-strong)" : "var(--chip)", color: "var(--fg-2)" }}
+                  style={{
+                    background: menu ? "var(--chip-strong)" : "var(--chip)",
+                    color: "var(--fg-2)",
+                  }}
                 >
                   {dir.from}
                   <Arrow />
                   {dir.to}
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
                     <path d="M2.5 4l2.5 2.5L7.5 4" />
                   </svg>
                 </button>
                 {menu && (
                   <DirectionMenu
                     current={snap.direction}
-                    onPick={(d) => rerun(d, snap.explain)}
+                    onPick={(d) => run(d, snap.explain)}
                     onEditPrompts={() => popup.openSettings("translator")}
                   />
                 )}
               </div>
-              <label className="flex h-6 items-center gap-1.5 px-1 text-[12px]" title="Explain (⌘E)">
+              <label
+                className="flex h-6 items-center gap-1.5 px-1 text-[12px]"
+                title="Explain (⌘E)"
+              >
                 <input
                   type="checkbox"
                   checked={snap.explain}
-                  onChange={() => rerun(snap.direction, !snap.explain)}
+                  onChange={() =>
+                    run(
+                      snap.text || draft.trim() ? snap.direction : null,
+                      !snap.explain,
+                    )
+                  }
                   className="m-0 h-3.5 w-3.5"
                   style={{ accentColor: "var(--accent)" }}
                 />
                 Explain
               </label>
               <span data-tauri-drag-region className="flex-1 self-stretch" />
-              <span data-tauri-drag-region className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--muted)" }}>
+              <span
+                data-tauri-drag-region
+                className="flex items-center gap-1.5 text-[11px]"
+                style={{ color: "var(--muted)" }}
+              >
                 {streaming ? (
                   <>
-                    <svg className="animate-spin" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                    <svg
+                      className="animate-spin"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                    >
                       <path d="M6 1.5a4.5 4.5 0 1 1-4.5 4.5" />
                     </svg>
                     {snap.kind === "explain" ? "Explaining…" : "Translating…"}
                   </>
                 ) : (
-                  done && `${modelName(snap.model)} · ${(snap.ms / 1000).toFixed(1)} s`
+                  done &&
+                  `${modelName(snap.model)} · ${(snap.ms / 1000).toFixed(1)} s`
                 )}
               </span>
               <button
@@ -183,45 +300,87 @@ export function Popup() {
                 className="flex h-6 w-6 items-center justify-center rounded-md"
                 style={{ color: "var(--muted)" }}
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
                   <path d="M3 3l6 6M9 3l-6 6" />
                 </svg>
               </button>
             </div>
-            <div
-              className="overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
-              style={{ maxHeight: window.screen.availHeight - CHROME_HEIGHT, userSelect: "text", cursor: "text" }}
-            >
-              <Formatted text={snap.result} />
-              {streaming && (
-                <span
-                  className="ml-0.5 inline-block h-4 w-0.5 animate-pulse align-[-3px]"
-                  style={{ background: "var(--accent)" }}
-                />
-              )}
-            </div>
+            <SourceCell
+              key={snap.id}
+              text={draft}
+              open={open}
+              focus={open && !snap.from_selection}
+              error={inputError}
+              onToggle={() => setOpen(!open)}
+              onChange={(t) => {
+                setInputError("");
+                setDraft(t);
+              }}
+              onTranslate={() => run(null, snap.explain)}
+            />
+            {hasAnswer && (
+              <div
+                className="overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
+                style={{
+                  maxHeight: window.screen.availHeight - CHROME_HEIGHT,
+                  userSelect: "text",
+                  cursor: "text",
+                }}
+              >
+                <Formatted text={snap.result} />
+                {streaming && (
+                  <span
+                    className="ml-0.5 inline-block h-4 w-0.5 animate-pulse align-[-3px]"
+                    style={{ background: "var(--accent)" }}
+                  />
+                )}
+              </div>
+            )}
             <div
               className="flex items-center gap-1.5 rounded-b-xl border-t px-2.5 py-2"
-              style={{ borderColor: "var(--line)", background: "var(--footer)" }}
+              style={{
+                borderColor: "var(--line)",
+                background: "var(--footer)",
+              }}
             >
               <button
                 type="button"
                 disabled={!done}
                 onClick={() => popup.copy()}
                 className="flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] disabled:opacity-50"
-                style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+                style={{
+                  background: "var(--button)",
+                  borderColor: "var(--button-border)",
+                }}
               >
-                Copy <span className="text-[11px]" style={{ color: "var(--muted)" }}>⌘C</span>
+                Copy{" "}
+                <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  ⌘C
+                </span>
               </button>
-              <button
-                type="button"
-                disabled={!done}
-                onClick={() => popup.replace()}
-                className="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium disabled:opacity-50"
-                style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
-              >
-                Replace <span className="text-[11px] opacity-80">↵</span>
-              </button>
+              {snap.from_selection && (
+                <button
+                  type="button"
+                  disabled={!done}
+                  onClick={() => popup.replace()}
+                  className="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium disabled:opacity-50"
+                  style={{
+                    background: "var(--accent)",
+                    color: "var(--accent-fg)",
+                  }}
+                >
+                  Replace <span className="text-[11px] opacity-80">↵</span>
+                </button>
+              )}
             </div>
           </>
         )}
@@ -236,18 +395,36 @@ function ErrorBody({ snap }: { snap: Snapshot }) {
     kind === "no_key"
       ? { label: "Open Settings", run: () => popup.openSettings("llm") }
       : kind === "not_trusted"
-        ? { label: "Open Accessibility Settings", run: () => popup.openAccessibility() }
+        ? {
+            label: "Open Accessibility Settings",
+            run: () => popup.openAccessibility(),
+          }
         : null;
   return (
     <>
       <div className="flex items-start gap-2.5 pt-3.5 pr-2.5 pb-3 pl-4">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--warn)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label="Warning" className="mt-px shrink-0">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 18 18"
+          fill="none"
+          stroke="var(--warn)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          role="img"
+          aria-label="Warning"
+          className="mt-px shrink-0"
+        >
           <path d="M9 2.5l7 12.5H2z" />
           <path d="M9 7.5v3.5M9 13.2v.1" />
         </svg>
         <div className="flex flex-1 flex-col gap-1">
           <span className="font-semibold">{ERROR_TITLES[kind]}</span>
-          <span className="leading-snug" style={{ color: "var(--fg-2)", userSelect: "text" }}>
+          <span
+            className="leading-snug"
+            style={{ color: "var(--fg-2)", userSelect: "text" }}
+          >
             {ERROR_HINTS[kind] ?? snap.error}
           </span>
         </div>
@@ -258,7 +435,16 @@ function ErrorBody({ snap }: { snap: Snapshot }) {
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
           style={{ color: "var(--muted)" }}
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
             <path d="M3 3l6 6M9 3l-6 6" />
           </svg>
         </button>

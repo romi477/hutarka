@@ -42,11 +42,15 @@ The app has no Dock icon. It lives in the menu bar.
 
 Select text, press **⌃⌥T** (or menu bar › Translate selection).
 
+**Typing instead of selecting.** Press the hotkey with nothing selected (or menu bar › Type text to translate…): the popup opens with an empty field. Type or paste, then ⌘↵ or Translate.
+
+**The original** sits above the answer, collapsed to one line. Click it to open it, edit the text or write a new one, and translate again with ⌘↵. The direction is detected again for new text; picking one in the direction menu translates the edited text in that direction.
+
 - **Direction** is automatic: English goes to Russian, Polish and Russian go to English. The direction button in the popup header switches between EN → RU, EN → PL, PL → EN and RU → EN. Choosing EN → RU or EN → PL by hand makes it the default for English from then on.
 - **Word or text.** One to three words (no sentence punctuation) get a short dictionary entry: meanings with part of speech, examples, collocations. Longer text gets a plain translation.
 - **Explain** (checkbox in the header, ⌘E) gives a deeper answer instead: the meaning, five common sentences with translations, and a note on typical mistakes. The checkbox state is remembered.
 - **Copy** (⌘C) copies the answer and closes the popup. If you selected part of the answer in the popup, ⌘C copies only that part and the popup stays open.
-- **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields.
+- **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields. Not shown for typed text.
 - **Move** the popup by dragging its header. It grows with the answer up to the screen's height; only a longer answer scrolls.
 - **Esc** or a click outside closes the popup.
 
@@ -54,8 +58,9 @@ Popup keys:
 
 | Key | Action |
 |---|---|
+| ⌘↵ | translate the text in the original field |
 | ⌘C | copy the answer |
-| ↵ | replace the selection with the answer |
+| ↵ | replace the selection with the answer (outside the original field; only for a selection) |
 | ⌘E | toggle Explain and run again |
 | ⌘1 … ⌘4 | run again as EN → RU, EN → PL, PL → EN, RU → EN |
 | Esc | close |
@@ -89,7 +94,7 @@ Edited prompts are kept as they are when a new version ships different default p
   ```
 
 - **"No Anthropic API key".** Settings › LLM, save the key.
-- **"Nothing selected" in a browser or Electron app.** These often hide the selection from Accessibility; Hutarka then copies it with ⌘C. Make sure the text is really selected and the window is focused.
+- **The popup opens empty although text is selected (browser, Electron app).** These often hide the selection from Accessibility; Hutarka then copies it with ⌘C. Make sure the text is really selected and the window is focused, or paste the text into the field.
 - **Something else fails.** Look at the log file above.
 
 ## Known limits

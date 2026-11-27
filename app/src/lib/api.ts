@@ -4,7 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 export type Direction = "en-ru" | "en-pl" | "pl-en" | "ru-en";
 export type Kind = "text" | "word" | "explain";
 export type Status = "idle" | "streaming" | "done" | "error";
-export type ErrorKind = "no_key" | "not_trusted" | "nothing" | "too_long" | "api";
+export type ErrorKind = "no_key" | "not_trusted" | "too_long" | "api";
 export type Lang = "en" | "pl" | "ru";
 export type Effort = "low" | "medium" | "high";
 
@@ -27,6 +27,7 @@ export interface Snapshot {
   ms: number;
   error_kind: ErrorKind | null;
   error: string;
+  from_selection: boolean;
 }
 
 export const popup = {
@@ -34,6 +35,8 @@ export const popup = {
   onSnapshot: (cb: (s: Snapshot) => void): Promise<UnlistenFn> =>
     listen<Snapshot>("popup:snapshot", (e) => cb(e.payload)),
   rerun: (direction: Direction, explain: boolean) => invoke("rerun", { direction, explain }),
+  translate: (text: string, direction: Direction | null, explain: boolean, fromSelection: boolean) =>
+    invoke("translate_text", { text, direction, explain, fromSelection }),
   copy: () => invoke("copy_result"),
   replace: () => invoke("replace_result"),
   close: () => invoke("close_popup"),
