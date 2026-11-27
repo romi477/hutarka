@@ -32,6 +32,18 @@ pub fn register_hotkey(app: &AppHandle, hotkey: &str) -> Result<(), String> {
 
 pub fn run() {
     let result = tauri::Builder::default()
+        // ~/Library/Logs/dev.hutarka.app/Hutarka.log, plus stdout.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("Hutarka".into()),
+                    }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())

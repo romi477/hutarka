@@ -145,6 +145,7 @@ pub fn trigger(app: &AppHandle) {
                 start(&app, text, dir, kind);
             }
             Err((kind, message)) => {
+                log::info!("lookup not started: {kind:?}");
                 popup::show_near_cursor(&app);
                 fail(&app, kind, message);
             }
@@ -197,8 +198,14 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
             error: String::new(),
         };
     });
+    log::info!(
+        "lookup {id}: {dir:?} {kind:?}, {} chars, model {}",
+        text.chars().count(),
+        req.model
+    );
     let key = settings.api_key.trim().to_string();
     if key.is_empty() {
+        log::warn!("lookup {id}: no API key");
         state.update(app, id, |s| {
             s.status = Status::Error;
             s.error_kind = Some(ErrorKind::NoKey);
@@ -219,6 +226,7 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
         let ms = started.elapsed().as_millis() as u64;
         match outcome {
             Ok(result) => {
+                log::info!("lookup {id}: done in {ms} ms");
                 state.update(&handle, id, |s| {
                     s.status = Status::Done;
                     s.result = result.clone();
@@ -240,11 +248,14 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
                     log::error!("cannot write the lookup journal: {e}");
                 }
             }
-            Err(e) => state.update(&handle, id, |s| {
-                s.status = Status::Error;
-                s.error_kind = Some(ErrorKind::Api);
-                s.error = e.to_string();
-            }),
+            Err(e) => {
+                log::warn!("lookup {id}: failed after {ms} ms: {e}");
+                state.update(&handle, id, |s| {
+                    s.status = Status::Error;
+                    s.error_kind = Some(ErrorKind::Api);
+                    s.error = e.to_string();
+                })
+            }
         }
     });
     if let Ok(mut slot) = state.task.lock() {
@@ -258,8 +269,9 @@ pub(crate) fn save_settings(app: &AppHandle, change: impl FnOnce(&mut Settings))
         return;
     };
     change(&mut settings);
-    if let Err(e) = settings::save(app, &settings) {
-        log::error!("cannot save settings: {e}");
+    match settings::save(app, &settings) {
+        Ok(()) => log::info!("settings saved"),
+        Err(e) => log::error!("cannot save settings: {e}"),
     }
 }
 
