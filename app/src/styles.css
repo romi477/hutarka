@@ -42,6 +42,14 @@
   }
 }
 
+/* Text the user may select and copy (the rest of the UI is not selectable). */
+.selectable,
+.selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
 html,
 body {
   margin: 0;

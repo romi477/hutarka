@@ -451,6 +451,21 @@ pub fn copy_result(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Copies text the user selected in the popup. The app has no Edit menu, so
+/// the webview's own ⌘C does nothing; the page sends the selection here.
+#[tauri::command]
+pub fn copy_text(app: AppHandle, text: String) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    app.clipboard().write_text(text).map_err(|e| e.to_string())
+}
+
+/// Clipboard text for ⌘V in the popup's source field (same reason as above).
+#[tauri::command]
+pub fn clipboard_text(app: AppHandle) -> String {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    app.clipboard().read_text().unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn replace_result(app: AppHandle) -> Result<(), String> {
     let Some(result) = app

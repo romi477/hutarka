@@ -15,7 +15,8 @@ mod translator;
 mod tray;
 mod windows;
 
-use tauri::{ActivationPolicy, AppHandle, Manager};
+use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
+use tauri::{ActivationPolicy, AppHandle, Manager, Wry};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 use crate::lookup::AppState;
@@ -57,6 +58,8 @@ pub fn run() {
             lookup::rerun,
             lookup::translate_text,
             lookup::copy_result,
+            lookup::copy_text,
+            lookup::clipboard_text,
             lookup::replace_result,
             lookup::close_popup,
             lookup::resize_popup,
@@ -73,6 +76,7 @@ pub fn run() {
         .setup(|app| {
             app.set_activation_policy(ActivationPolicy::Accessory);
             let handle = app.handle();
+            handle.set_menu(edit_menu(handle)?)?;
             let settings = settings::load(handle);
             let hotkey = settings.hotkey.clone();
             app.manage(AppState::new(settings));
@@ -96,4 +100,31 @@ pub fn run() {
         }),
         Err(e) => eprintln!("hutarka: cannot start: {e}"),
     }
+}
+
+/// A menu bar app shows no menus, but without an Edit menu macOS gives the
+/// windows no ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z. This hidden one makes them work in
+/// Settings (the popup does them itself: it never makes the app active).
+fn edit_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
+    let edit = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::select_all(app, None)?,
+        ],
+    )?;
+    let app_menu = Submenu::with_items(
+        app,
+        "Hutarka",
+        true,
+        &[&PredefinedMenuItem::quit(app, None)?],
+    )?;
+    Menu::with_items(app, &[&app_menu, &edit])
 }

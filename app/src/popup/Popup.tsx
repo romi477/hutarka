@@ -8,6 +8,7 @@ import {
 import { DIRECTIONS, popup, type Direction, type Snapshot } from "@/lib/api";
 import { DirectionMenu } from "./DirectionMenu";
 import { SourceCell } from "./SourceCell";
+import { handleEditKey } from "./editKeys";
 
 /** Room around the card for its shadow; matches the window width (560 = 520 + 2 × 20). */
 const MARGIN = 20;
@@ -57,6 +58,7 @@ export function Popup() {
   /** The next lookup comes from our own Translate: keep the source cell as it is. */
   const ownRun = useRef(false);
   const wrapper = useRef<HTMLDivElement>(null);
+  const answer = useRef<HTMLDivElement>(null);
 
   // A new lookup: show its text in the source cell, collapsed for a selection,
   // open (to type) for an empty popup.
@@ -122,6 +124,7 @@ export function Popup() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!snap) return;
+      if (handleEditKey(e, answer.current)) return;
       const typing = (e.target as HTMLElement | null)?.tagName === "TEXTAREA";
       if (typing && e.key === "Enter" && e.metaKey) {
         e.preventDefault();
@@ -140,11 +143,9 @@ export function Popup() {
         if (menu) setMenu(false);
         else popup.close();
       } else if (e.metaKey && e.key.toLowerCase() === "c" && snap.status === "done") {
-        // Copy the whole answer unless the user selected part of it.
-        if (!window.getSelection()?.toString()) {
-          e.preventDefault();
-          popup.copy();
-        }
+        // Nothing selected (handleEditKey copies a selection): the whole answer.
+        e.preventDefault();
+        popup.copy();
       } else if (
         e.key === "Enter" &&
         snap.status === "done" &&
@@ -331,12 +332,9 @@ export function Popup() {
             />
             {hasAnswer && (
               <div
-                className="overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
-                style={{
-                  maxHeight: window.screen.availHeight - CHROME_HEIGHT,
-                  userSelect: "text",
-                  cursor: "text",
-                }}
+                ref={answer}
+                className="selectable overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
+                style={{ maxHeight: window.screen.availHeight - CHROME_HEIGHT }}
               >
                 <Formatted text={snap.result} />
                 {streaming && (
@@ -424,8 +422,8 @@ function ErrorBody({ snap }: { snap: Snapshot }) {
         <div className="flex flex-1 flex-col gap-1">
           <span className="font-semibold">{ERROR_TITLES[kind]}</span>
           <span
-            className="leading-snug"
-            style={{ color: "var(--fg-2)", userSelect: "text" }}
+            className="selectable leading-snug"
+            style={{ color: "var(--fg-2)" }}
           >
             {ERROR_HINTS[kind] ?? snap.error}
           </span>

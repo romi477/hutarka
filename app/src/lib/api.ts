@@ -38,6 +38,8 @@ export const popup = {
   translate: (text: string, direction: Direction | null, explain: boolean, fromSelection: boolean) =>
     invoke("translate_text", { text, direction, explain, fromSelection }),
   copy: () => invoke("copy_result"),
+  copyText: (text: string) => invoke("copy_text", { text }),
+  clipboardText: () => invoke<string>("clipboard_text"),
   replace: () => invoke("replace_result"),
   close: () => invoke("close_popup"),
   resize: (height: number) => invoke("resize_popup", { height }),

@@ -79,8 +79,8 @@ export function SourceCell({ text, open, focus, error, onToggle, onChange, onTra
             rows={2}
             placeholder="Type or paste text to translate"
             onChange={(e) => onChange(e.target.value)}
-            className="w-full resize-none rounded-md border px-2 py-1.5 text-[13px] leading-normal outline-none"
-            style={{ background: "var(--field)", borderColor: "var(--border)", userSelect: "text" }}
+            className="selectable w-full resize-none rounded-md border px-2 py-1.5 text-[13px] leading-normal outline-none"
+            style={{ background: "var(--field)", borderColor: "var(--border)" }}
           />
           <div className="flex items-center gap-2">
             <span className="text-[11px]" style={{ color: error ? "var(--warn)" : "var(--muted)" }}>
