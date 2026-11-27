@@ -6,7 +6,8 @@ use crate::Error;
 pub const DEFAULT_MODEL: &str = "claude-haiku-5-5";
 
 /// How much the model thinks before answering: trades speed and cost for depth.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Effort {
     #[default]
     Low,
