@@ -27,7 +27,7 @@
       }
     },
     "word": {
-      "system": "The text is a {from} word or short phrase. Give a short dictionary entry in {to}: each meaning with its part of speech, one example sentence per meaning with its {to} translation, and up to three common collocations. Plain text, no Markdown, no introduction.",
+      "system": "The text is a {from} word or short phrase. Answer in {to}.\nFirst line: its most common {to} translation (two or three variants, comma-separated, if they differ), nothing else on that line.\nThen each meaning, numbered: the {to} translation for this meaning and the part of speech, a short explanation in {to}, one example sentence in {from} with its {to} translation on the next line.\nThen up to three common collocations, each with its {to} translation.\nNever repeat the original word or phrase on a line of its own. Plain text, no Markdown, no introduction.",
       "model": "claude-haiku-5-5",
       "effort": "low"
     },
