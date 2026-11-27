@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/* macOS look: system font, native sizes, light and dark from the system. */
+:root {
+  --bg: rgba(250, 250, 250, 0.94);
+  --bg-solid: #ffffff;
+  --fg: #1d1d1f;
+  --fg-2: #3a3a3c;
+  --muted: #6e6e73;
+  --line: rgba(0, 0, 0, 0.1);
+  --border: rgba(0, 0, 0, 0.16);
+  --chip: rgba(0, 0, 0, 0.06);
+  --chip-strong: rgba(0, 0, 0, 0.12);
+  --footer: rgba(0, 0, 0, 0.025);
+  --button: #ffffff;
+  --button-border: rgba(0, 0, 0, 0.14);
+  --accent: #0a63d6;
+  --accent-fg: #ffffff;
+  --sidebar: #f2f1f0;
+  --field: #fbfbfb;
+  --warn: #b25000;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: rgba(44, 44, 48, 0.94);
+    --bg-solid: #1e1e20;
+    --fg: #f2f2f7;
+    --fg-2: #d1d1d6;
+    --muted: #a1a1a6;
+    --line: rgba(255, 255, 255, 0.1);
+    --border: rgba(255, 255, 255, 0.14);
+    --chip: rgba(255, 255, 255, 0.1);
+    --chip-strong: rgba(255, 255, 255, 0.18);
+    --footer: rgba(255, 255, 255, 0.03);
+    --button: rgba(255, 255, 255, 0.08);
+    --button-border: rgba(255, 255, 255, 0.16);
+    --sidebar: #2a2a2d;
+    --field: #252528;
+    --warn: #ff9f0a;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}

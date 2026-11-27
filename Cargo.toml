@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/hutarka-llm", "crates/hutarka-cli"]
+members = ["crates/hutarka-llm", "crates/hutarka-cli", "app/src-tauri"]
 resolver = "3"
 
 [workspace.package]
