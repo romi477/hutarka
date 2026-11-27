@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Hutarka records your voice for dictation and meetings, transcribed on this Mac.</string>
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>Hutarka records the other side of a meeting from system audio.</string>
+</dict>
+</plist>

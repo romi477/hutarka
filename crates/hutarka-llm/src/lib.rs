@@ -4,7 +4,8 @@
 mod client;
 mod error;
 mod request;
+mod sse;
 
-pub use client::Client;
+pub use client::{Client, DEFAULT_BASE_URL};
 pub use error::Error;
-pub use request::{DEFAULT_MODEL, Effort, Request, build_body, parse_response};
+pub use request::{DEFAULT_MODEL, Effort, Request, build_body, build_stream_body, parse_response};

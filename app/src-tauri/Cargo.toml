@@ -1,0 +1,35 @@
+[package]
+name = "hutarka-app"
+version = "0.1.0"
+description = "Hutarka"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "hutarka-app"
+
+[lib]
+name = "hutarka_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+hutarka-llm = { path = "../../crates/hutarka-llm" }
+tauri = { version = "2.11.5", features = ["macos-private-api", "tray-icon", "image-png"] }
+tauri-plugin-store = "2.4.1"
+tauri-plugin-clipboard-manager = "2.3.2"
+tauri-plugin-global-shortcut = "2.3.1"
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+whatlang = "0.16"
+chrono = "0.4"
+objc2-core-foundation = { version = "0.3", features = ["CFString", "CFBase"] }
+enigo = "0.6"
+objc2-application-services = { version = "0.3", features = ["HIServices", "AXUIElement", "AXError", "AXAttributeConstants"] }
+tauri-plugin-log = "2"
+
+[dev-dependencies]
+tempfile = "3"

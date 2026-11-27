@@ -17,4 +17,6 @@ pub enum Error {
     Empty,
     #[error("unexpected response: {0}")]
     BadResponse(String),
+    #[error("stream error: {0}")]
+    Stream(String),
 }
