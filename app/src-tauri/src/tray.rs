@@ -1,9 +1,9 @@
 //! Menu bar icon and its menu. Pattern from Handy's `tray.rs` (MIT).
 
+use tauri::AppHandle;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::AppHandle;
 
 use crate::windows;
 

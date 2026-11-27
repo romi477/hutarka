@@ -1,5 +1,7 @@
 //! Hutarka: menu bar app with the selection translator.
 
+#[allow(dead_code, unused_imports)] // wired up in the popup flow (step 02, task 7)
+mod translator;
 mod tray;
 mod windows;
 
@@ -20,7 +22,10 @@ pub fn run() {
     match result {
         // Closing the last window must not quit a menu bar app.
         Ok(app) => app.run(|_, event| {
-            if let tauri::RunEvent::ExitRequested { api, code: None, .. } = event {
+            if let tauri::RunEvent::ExitRequested {
+                api, code: None, ..
+            } = event
+            {
                 api.prevent_exit();
             }
         }),
