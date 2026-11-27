@@ -14,7 +14,7 @@ cargo install --path crates/hutarka-cli   # installs ~/.cargo/bin/hutarka
 
 Work goes in steps, each planned and closed in `docs_/steps/` (see `docs_/steps/README.md`).
 
-Documentation layout: `docs/` is reserved for official documentation of the finished app. Everything intermediate (research, step plans, notes) lives in `docs_/`, which is git-ignored and never committed.
+Documentation layout: `docs/` is the official user documentation of what works today (`docs/README.md` index, `docs/cli.md`, ...). Any change to user-visible behavior updates the matching page in the same commit; nothing planned or unbuilt goes there. Everything intermediate (research, step plans, notes) lives in `docs_/`, which is git-ignored and never committed.
 
 ## Who it is for
 
