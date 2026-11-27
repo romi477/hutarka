@@ -81,7 +81,9 @@ export function Popup() {
     };
   }, []);
 
-  // The window follows the card's height.
+  // The window follows the card's height. The card exists only once the first
+  // snapshot arrived, so the observer is attached then (not on mount).
+  const hasSnap = snap !== null;
   useLayoutEffect(() => {
     const el = wrapper.current;
     if (!el) return;
@@ -91,7 +93,7 @@ export function Popup() {
     const observer = new ResizeObserver(send);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [menu]);
+  }, [menu, hasSnap]);
 
   /**
    * Runs the lookup again: the edited source text if it changed (direction
