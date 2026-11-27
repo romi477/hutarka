@@ -252,7 +252,7 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
     }
 }
 
-fn save_settings(app: &AppHandle, change: impl FnOnce(&mut Settings)) {
+pub(crate) fn save_settings(app: &AppHandle, change: impl FnOnce(&mut Settings)) {
     let state = app.state::<AppState>();
     let Ok(mut settings) = state.settings.lock() else {
         return;

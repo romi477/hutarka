@@ -41,3 +41,36 @@ export const popup = {
   openSettings: (section?: string) => invoke("open_settings", { section: section ?? null }),
   openAccessibility: () => invoke("open_accessibility"),
 };
+
+export type PromptId = `translate:${Direction}` | "word" | "explain";
+
+export interface PromptSpec {
+  system: string;
+  model: string;
+  effort: Effort;
+}
+
+export interface SettingsView {
+  has_api_key: boolean;
+  hotkey: string;
+  english_target: Lang;
+  explain: boolean;
+  prompts: {
+    translate: Record<Direction, PromptSpec>;
+    word: PromptSpec;
+    explain: PromptSpec;
+  };
+}
+
+export const MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5"];
+
+export const settings = {
+  get: () => invoke<SettingsView>("get_settings"),
+  setPrompt: (id: PromptId, spec: PromptSpec) => invoke("set_prompt", { id, spec }),
+  resetPrompt: (id: PromptId) => invoke<PromptSpec>("reset_prompt", { id }),
+  setApiKey: (key: string) => invoke("set_api_key", { key }),
+  setEnglishTarget: (lang: Lang) => invoke("set_english_target", { lang }),
+  setHotkey: (hotkey: string) => invoke("set_hotkey", { hotkey }),
+  onSection: (cb: (section: string) => void): Promise<UnlistenFn> =>
+    listen<string>("settings:section", (e) => cb(e.payload)),
+};

@@ -1,9 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "@/styles.css";
+import { Settings } from "./Settings";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <div className="p-6 text-lg font-semibold">Hutarka settings</div>
+    <Settings />
   </React.StrictMode>,
 );

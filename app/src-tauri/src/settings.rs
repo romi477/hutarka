@@ -160,7 +160,6 @@ impl Prompts {
         }
     }
 
-    #[allow(dead_code)] // used by the Settings window (task 8)
     pub fn set(&mut self, id: PromptId, spec: PromptSpec) {
         match id {
             PromptId::Translate(dir) => {
@@ -176,8 +175,30 @@ fn defaults_spec(dir: Direction) -> &'static PromptSpec {
     &defaults().prompts.translate[&dir]
 }
 
+/// Settings as the Settings window sees them: the key itself never leaves
+/// the Rust side.
+#[derive(Debug, Clone, Serialize)]
+pub struct SettingsView {
+    pub has_api_key: bool,
+    pub hotkey: String,
+    pub english_target: Lang,
+    pub explain: bool,
+    pub prompts: Prompts,
+}
+
+impl From<&Settings> for SettingsView {
+    fn from(s: &Settings) -> Self {
+        SettingsView {
+            has_api_key: !s.api_key.trim().is_empty(),
+            hotkey: s.hotkey.clone(),
+            english_target: s.english_target,
+            explain: s.explain,
+            prompts: s.prompts.clone(),
+        }
+    }
+}
+
 /// The shipped value of one prompt ("Reset to default").
-#[allow(dead_code)] // used by the Settings window (task 8)
 pub fn default_prompt(id: PromptId) -> PromptSpec {
     defaults().prompts.get(id).clone()
 }
@@ -312,6 +333,36 @@ mod tests {
         let explain = build_request(&s, "t", Direction::RuEn, Kind::Explain);
         assert!(explain.system.contains("English"));
         assert!(!explain.system.contains("{to}"));
+    }
+
+    #[test]
+    fn view_hides_key() {
+        let mut s = defaults().clone();
+        s.api_key = "sk-secret".into();
+        let view = SettingsView::from(&s);
+        assert!(view.has_api_key);
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(!json.contains("sk-secret"));
+        assert!(!json.contains("\"api_key\""));
+        assert_eq!(view.hotkey, "Ctrl+Alt+T");
+        assert!(!SettingsView::from(defaults()).has_api_key);
+    }
+
+    #[test]
+    fn reset_restores_default() {
+        let mut s = defaults().clone();
+        s.prompts.set(
+            PromptId::Explain,
+            PromptSpec {
+                system: "seven sentences".into(),
+                model: "m".into(),
+                effort: Effort::High,
+            },
+        );
+        assert_eq!(s.prompts.explain.system, "seven sentences");
+        s.prompts
+            .set(PromptId::Explain, default_prompt(PromptId::Explain));
+        assert_eq!(s.prompts.explain, defaults().prompts.explain);
     }
 
     #[test]

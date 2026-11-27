@@ -1,5 +1,6 @@
 //! Hutarka: menu bar app with the selection translator.
 
+mod commands;
 mod journal;
 mod keys;
 mod lookup;
@@ -45,6 +46,12 @@ pub fn run() {
             lookup::resize_popup,
             lookup::open_settings,
             lookup::open_accessibility,
+            commands::get_settings,
+            commands::set_prompt,
+            commands::reset_prompt,
+            commands::set_api_key,
+            commands::set_english_target,
+            commands::set_hotkey,
         ])
         .setup(|app| {
             app.set_activation_policy(ActivationPolicy::Accessory);
