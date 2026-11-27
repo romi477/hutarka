@@ -381,6 +381,16 @@ export function Popup() {
                   Replace <span className="text-[11px] opacity-80">↵</span>
                 </button>
               )}
+              <span className="flex-1" />
+              {/* Same as the header's ×, within reach after scrolling a long answer. */}
+              <button
+                type="button"
+                onClick={() => popup.close()}
+                className="h-7 rounded-md px-2.5 text-[12px] hover:bg-[var(--chip)]"
+                style={{ color: "var(--muted)" }}
+              >
+                Close
+              </button>
             </div>
           </>
         )}

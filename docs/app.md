@@ -52,7 +52,7 @@ Select text, press **⌃⌥T** (or menu bar › Translate selection).
 - **Copy** (⌘C) copies the answer and closes the popup. If you selected part of the answer in the popup, ⌘C copies only that part and the popup stays open. Select with the mouse, or ⌘A for the whole answer. In the original field ⌘C, ⌘X, ⌘V, ⌘A and ⌘Z work as usual.
 - **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields. Whatever was on your clipboard (text, images, files) comes back afterwards. Not shown for typed text.
 - **Move** the popup by dragging its header. It grows with the answer up to the screen's height; only a longer answer scrolls.
-- **Esc** or a click outside closes the popup.
+- **Esc**, the Close button at the bottom right, or a click outside closes the popup.
 
 Popup keys:
 
