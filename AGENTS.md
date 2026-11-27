@@ -4,13 +4,18 @@ Guidance for AI coding assistants working in this repository. See `README.md` fo
 
 ## Status
 
-Step 01 done: the `hutarka` CLI and the `hutarka-llm` crate (Cargo workspace in `crates/`). The app itself does not exist yet.
+Step 01 done: the `hutarka` CLI and the `hutarka-llm` crate (`crates/`). Step 02 done: the app (`app/`) with the selection translator: menu bar icon, popup, Settings (General, Translator prompts, LLM key), lookup journal. No dictation or meetings yet.
 
 ```bash
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo install --path crates/hutarka-cli   # installs ~/.cargo/bin/hutarka
+(cd app && npm run build)                 # type-check and build the UI
+scripts/make-signing-cert.sh              # once per Mac: "Hutarka Local" signing identity
+scripts/app.sh install                    # build, install ~/Applications/Hutarka.app, start it
+scripts/app.sh cli                        # installs ~/.cargo/bin/hutarka
 ```
+
+App log: `~/Library/Logs/dev.hutarka.app/Hutarka.log`.
 
 Work goes in steps, each planned and closed in `docs_/steps/` (see `docs_/steps/README.md`).
 
@@ -24,8 +29,8 @@ One user, one machine: the author's Apple Silicon MacBook. Hutarka is **not dist
 
 - **Platform**: macOS 14.4+ on Apple Silicon only. No Windows, no Linux. Delete cross-platform branches (`cfg(windows)`, `cfg(target_os = "linux")`, X11/Wayland fallbacks) instead of keeping them compiling.
 - **Language**: Rust for all app logic. TypeScript only for the settings UI.
-- **Layout**: Cargo workspace: the LLM core crate, the `hutarka` CLI binary, and the Tauri app (from Handy). The Swift `yogurt-audio` helper sits beside them.
-- **Base**: a snapshot of [Handy](https://github.com/cjpais/Handy) (Tauri 2, Rust backend, React frontend), not a fork with history. We cut freely and do not track upstream.
+- **Layout**: Cargo workspace: `crates/hutarka-llm` (LLM core), `crates/hutarka-cli` (the `hutarka` binary), `app/src-tauri` (the Tauri app, package `hutarka-app`) with its React UI in `app/src`. The Swift `yogurt-audio` helper will sit beside them. Frontend tooling is npm.
+- **Base**: a fresh Tauri 2 app that copies pieces of [Handy](https://github.com/cjpais/Handy) (Tauri 2, Rust backend, React frontend) as each step needs them (tray, panel, later shortcuts, ASR, paste), instead of importing all of Handy and cutting it down. Not a fork; we do not track upstream.
 - **UI**: React + Tailwind from Handy, kept small. **English only**: remove i18next and translation files, write UI strings inline.
 - **No auto-update**: remove `tauri-plugin-updater` and the update checker.
 - **System audio capture**: Yogurt's `yogurt-audio` Swift helper used as a sidecar process, unchanged at first. Built with `swiftc` from the Command Line Tools (no Xcode project needed). Porting it to Rust (`objc2-*` crates) is a later, optional step.

@@ -2,7 +2,7 @@
 
 > *Гутарка* (Belarusian): a conversation, a talk.
 
-**Status: early.** The `hutarka` command-line translator works today ([docs](docs/cli.md)); the app itself is not built yet. This README is a sketch of what Hutarka is meant to become. Documentation of what already works is in [docs/](docs/README.md).
+**Status: early.** The `hutarka` command-line translator ([docs](docs/cli.md)) and the app's selection translator ([docs](docs/app.md)) work today; dictation and meetings are not built yet. This README is a sketch of what Hutarka is meant to become. Documentation of what already works is in [docs/](docs/README.md).
 
 Hutarka is a **private, local-first voice assistant for the Mac** that combines two things that are usually two separate apps:
 
