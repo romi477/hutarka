@@ -4,7 +4,7 @@ Hutarka copies code patterns and image assets from these projects.
 
 ## Handy
 
-https://github.com/cjpais/Handy — app icons (`app/src-tauri/icons/`), the menu bar icon, and the tray and NSPanel patterns in `app/src-tauri/src/tray.rs` and `popup.rs`.
+https://github.com/cjpais/Handy — the tray and NSPanel patterns in `app/src-tauri/src/tray.rs` and `popup.rs`. (The app and menu bar icons are Hutarka's own.)
 
 ```
 MIT License
