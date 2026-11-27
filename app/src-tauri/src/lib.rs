@@ -1,5 +1,6 @@
 //! Hutarka: menu bar app with the selection translator.
 
+mod clipboard_lock;
 mod commands;
 mod journal;
 mod keys;
@@ -57,6 +58,7 @@ pub fn run() {
             lookup::replace_result,
             lookup::close_popup,
             lookup::resize_popup,
+            lookup::popup_dragged,
             lookup::open_settings,
             lookup::open_accessibility,
             commands::get_settings,

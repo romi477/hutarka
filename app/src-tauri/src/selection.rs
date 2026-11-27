@@ -10,6 +10,7 @@ use objc2_core_foundation::{CFRetained, CFString, CFType};
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
+use crate::clipboard_lock::ClipboardLock;
 use crate::keys;
 
 /// Written to the clipboard before ⌘C: still there afterwards means the app
@@ -79,6 +80,7 @@ fn ax_selected_text() -> Option<String> {
 
 /// ⌘C fallback for apps without AX text (browsers, Electron, terminals).
 fn copy_selection(app: &AppHandle) -> Option<String> {
+    let _lock = ClipboardLock::acquire();
     let clipboard = app.clipboard();
     let saved = clipboard.read_text().ok();
     clipboard.write_text(SENTINEL).ok()?;
