@@ -14,10 +14,10 @@ use tauri_nspanel::{
 };
 
 pub const LABEL: &str = "popup";
-/// Window width: the 400 pt card plus room for its shadow.
-const WIDTH: f64 = 440.0;
+/// Window width: the 520 pt card plus room for its shadow (2 × 20).
+const WIDTH: f64 = 560.0;
 const INITIAL_HEIGHT: f64 = 200.0;
-const MAX_HEIGHT: f64 = 600.0;
+const MIN_HEIGHT: f64 = 60.0;
 /// Gap between the mouse and the popup's top-left corner, in points.
 const OFFSET: f64 = 8.0;
 
@@ -34,9 +34,53 @@ tauri_panel! {
     })
 }
 
-/// Where the popup was opened (physical screen coordinates of the mouse).
+/// Where the popup was opened (physical screen coordinates of the mouse), and
+/// where Hutarka last put it: a different position means the user dragged it.
 #[derive(Default)]
-pub struct Anchor(Mutex<Option<PhysicalPosition<f64>>>);
+pub struct Anchor(Mutex<Placed>);
+
+#[derive(Default)]
+pub struct Placed {
+    mouse: Option<PhysicalPosition<f64>>,
+    last: Option<PhysicalPosition<i32>>,
+}
+
+/// A monitor's work area, physical pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Area {
+    left: f64,
+    top: f64,
+    right: f64,
+    bottom: f64,
+}
+
+/// Top-left corner for a window of `size`. Not moved by the user: below-right
+/// of the mouse, flipped above it when there is no room below. Moved: where
+/// the user dropped it, shifted up if it grew past the bottom. Always inside
+/// the area as far as the size allows.
+fn origin(
+    mouse: (f64, f64),
+    dropped: Option<(f64, f64)>,
+    size: (f64, f64),
+    gap: f64,
+    area: Area,
+) -> (f64, f64) {
+    let (w, h) = size;
+    let (mut x, mut y) = match dropped {
+        Some(pos) => pos,
+        None => (mouse.0 + gap, mouse.1 + gap),
+    };
+    if x + w > area.right {
+        x = area.right - w;
+    }
+    if y + h > area.bottom {
+        y = match dropped {
+            Some(_) => area.bottom - h,
+            None => mouse.1 - gap - h,
+        };
+    }
+    (x.max(area.left), y.max(area.top))
+}
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let panel = PanelBuilder::<_, TranslatorPanel>::new(app, LABEL)
@@ -70,9 +114,12 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
 /// Shows the popup at the mouse and gives it the keyboard.
 pub fn show_near_cursor(app: &AppHandle) {
     if let Ok(cursor) = app.cursor_position()
-        && let Ok(mut anchor) = app.state::<Anchor>().0.lock()
+        && let Ok(mut placed) = app.state::<Anchor>().0.lock()
     {
-        *anchor = Some(cursor);
+        *placed = Placed {
+            mouse: Some(cursor),
+            last: None,
+        };
     }
     place(app, INITIAL_HEIGHT);
     let handle = app.clone();
@@ -96,21 +143,24 @@ pub fn hide(app: &AppHandle) {
 
 /// New content height from the page: resize, keep the popup on screen.
 pub fn resize(app: &AppHandle, height: f64) {
-    place(app, height.clamp(60.0, MAX_HEIGHT));
+    place(app, height.max(MIN_HEIGHT));
 }
 
-/// Sizes the window and puts it below-right of the anchor, moved left or up
-/// as needed to stay inside the anchor's monitor.
+/// Sizes the window (height capped by the monitor) and positions it with
+/// [`origin`].
 fn place(app: &AppHandle, height: f64) {
     let Some(window) = app.get_webview_window(LABEL) else {
         return;
     };
-    let anchor = app.state::<Anchor>().0.lock().ok().and_then(|a| *a);
-    let Some(anchor) = anchor else {
+    let anchor = app.state::<Anchor>();
+    let Ok(mut placed) = anchor.0.lock() else {
+        return;
+    };
+    let Some(mouse) = placed.mouse else {
         return;
     };
     let monitor = app
-        .monitor_from_point(anchor.x, anchor.y)
+        .monitor_from_point(mouse.x, mouse.y)
         .ok()
         .flatten()
         .or_else(|| app.primary_monitor().ok().flatten());
@@ -118,25 +168,68 @@ fn place(app: &AppHandle, height: f64) {
         return;
     };
     let scale = monitor.scale_factor();
-    let (w, h, gap) = (WIDTH * scale, height * scale, OFFSET * scale);
-    let area = monitor.work_area();
-    let (left, top) = (area.position.x as f64, area.position.y as f64);
-    let (right, bottom) = (left + area.size.width as f64, top + area.size.height as f64);
-    let mut x = anchor.x + gap;
-    let mut y = anchor.y + gap;
-    if x + w > right {
-        x = (right - w).max(left);
-    }
-    if y + h > bottom {
-        // Not enough room below the mouse: open above it.
-        y = (anchor.y - gap - h).max(top);
-    }
+    let work = monitor.work_area();
+    let area = Area {
+        left: work.position.x as f64,
+        top: work.position.y as f64,
+        right: work.position.x as f64 + work.size.width as f64,
+        bottom: work.position.y as f64 + work.size.height as f64,
+    };
+    let height = height.min(work.size.height as f64 / scale);
+    let current = window.outer_position().ok();
+    let dropped = match (placed.last, current) {
+        (Some(last), Some(now)) if last != now => Some((now.x as f64, now.y as f64)),
+        _ => None,
+    };
+    let (x, y) = origin(
+        (mouse.x, mouse.y),
+        dropped,
+        (WIDTH * scale, height * scale),
+        OFFSET * scale,
+        area,
+    );
+    let pos = PhysicalPosition {
+        x: x.round() as i32,
+        y: y.round() as i32,
+    };
     let _ = window.set_size(Size::Logical(LogicalSize {
         width: WIDTH,
         height,
     }));
-    let _ = window.set_position(Position::Physical(PhysicalPosition {
-        x: x.round() as i32,
-        y: y.round() as i32,
-    }));
+    let _ = window.set_position(Position::Physical(pos));
+    placed.last = Some(pos);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const AREA: Area = Area { left: 0.0, top: 0.0, right: 1000.0, bottom: 800.0 };
+
+    #[test]
+    fn opens_below_right_of_mouse() {
+        assert_eq!(origin((100.0, 100.0), None, (400.0, 300.0), 8.0, AREA), (108.0, 108.0));
+    }
+
+    #[test]
+    fn opens_above_when_no_room_below() {
+        assert_eq!(origin((100.0, 700.0), None, (400.0, 300.0), 8.0, AREA), (108.0, 392.0));
+    }
+
+    #[test]
+    fn taller_than_room_above_sticks_to_top() {
+        assert_eq!(origin((100.0, 300.0), None, (400.0, 700.0), 8.0, AREA), (108.0, 0.0));
+    }
+
+    #[test]
+    fn moved_by_user_stays_where_dropped() {
+        let pos = origin((100.0, 100.0), Some((500.0, 200.0)), (400.0, 300.0), 8.0, AREA);
+        assert_eq!(pos, (500.0, 200.0));
+    }
+
+    #[test]
+    fn moved_by_user_grows_up_at_the_bottom() {
+        let pos = origin((100.0, 100.0), Some((500.0, 600.0)), (400.0, 300.0), 8.0, AREA);
+        assert_eq!(pos, (500.0, 500.0));
+    }
 }

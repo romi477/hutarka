@@ -47,6 +47,7 @@ Select text, press **⌃⌥T** (or menu bar › Translate selection).
 - **Explain** (checkbox, ⌘E) gives a deeper answer instead: the meaning, five common sentences with translations, and a note on typical mistakes. The checkbox state is remembered.
 - **Copy** (⌘C) copies the answer. If you selected part of the answer in the popup, ⌘C copies only that part.
 - **Replace** (↵) pastes the answer over the original selection, for editable fields.
+- **Move** the popup by dragging its header. It grows with the answer up to the screen's height; only a longer answer scrolls.
 - **Esc** or a click outside closes the popup.
 
 Popup keys:

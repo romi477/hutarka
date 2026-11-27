@@ -2,9 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { DIRECTIONS, popup, type Direction, type Snapshot } from "@/lib/api";
 import { DirectionMenu } from "./DirectionMenu";
 
-/** Room around the card for its shadow; matches the window width (440 = 400 + 2 × 20). */
+/** Room around the card for its shadow; matches the window width (560 = 520 + 2 × 20). */
 const MARGIN = 20;
 const MENU_HEIGHT = 170;
+/** Header, footer and margins around the answer, so the window fits the screen. */
+const CHROME_HEIGHT = 140;
 
 const ERROR_TITLES: Record<string, string> = {
   no_key: "No Anthropic API key",
@@ -114,9 +116,10 @@ export function Popup() {
           <ErrorBody snap={snap} />
         ) : (
           <>
-            <div className="flex items-center gap-2 pt-2.5 pr-2.5 pl-3.5">
+            {/* Drag the header to move the popup (only elements marked as drag regions start a drag). */}
+            <div data-tauri-drag-region className="flex cursor-grab items-center gap-2 pt-2.5 pr-2.5 pl-3.5">
               {showsWord && (
-                <span className="truncate text-[17px] font-semibold" style={{ maxWidth: 220 }}>
+                <span data-tauri-drag-region className="truncate text-[17px] font-semibold" style={{ maxWidth: 300 }}>
                   {snap.text.trim()}
                 </span>
               )}
@@ -144,8 +147,8 @@ export function Popup() {
                   />
                 )}
               </div>
-              <span className="flex-1" />
-              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--muted)" }}>
+              <span data-tauri-drag-region className="flex-1 self-stretch" />
+              <span data-tauri-drag-region className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--muted)" }}>
                 {streaming ? (
                   <>
                     <svg className="animate-spin" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
@@ -171,7 +174,7 @@ export function Popup() {
             </div>
             <div
               className="overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
-              style={{ maxHeight: 440, userSelect: "text", cursor: "text" }}
+              style={{ maxHeight: window.screen.availHeight - CHROME_HEIGHT, userSelect: "text", cursor: "text" }}
             >
               <Formatted text={snap.result} />
               {streaming && (
