@@ -4,5 +4,5 @@
 mod lang;
 mod prompt;
 
-pub use lang::{Direction, Lang, auto_direction, detect_lang};
-pub use prompt::{Kind, MAX_CHARS, TextError, kind_for, prepare_text, render};
+pub use lang::{Direction, Lang, auto_direction};
+pub use prompt::{Kind, TextError, kind_for, prepare_text, render};

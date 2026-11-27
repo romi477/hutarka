@@ -8,7 +8,7 @@ use crate::request::{build_stream_body, check_stop};
 use crate::sse::{SseEvent, SseParser};
 use crate::{Error, Request, build_body, parse_response};
 
-const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
+pub const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
 const API_VERSION: &str = "2026-10-21";
 
 /// Anthropic Messages API client.

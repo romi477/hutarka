@@ -160,6 +160,7 @@ impl Prompts {
         }
     }
 
+    #[allow(dead_code)] // used by the Settings window (task 8)
     pub fn set(&mut self, id: PromptId, spec: PromptSpec) {
         match id {
             PromptId::Translate(dir) => {
@@ -176,6 +177,7 @@ fn defaults_spec(dir: Direction) -> &'static PromptSpec {
 }
 
 /// The shipped value of one prompt ("Reset to default").
+#[allow(dead_code)] // used by the Settings window (task 8)
 pub fn default_prompt(id: PromptId) -> PromptSpec {
     defaults().prompts.get(id).clone()
 }

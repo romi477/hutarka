@@ -32,6 +32,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
+            "translate" => crate::lookup::trigger(app),
             "prompts" => windows::open_settings(app, Some("translator")),
             "settings" => windows::open_settings(app, None),
             "quit" => app.exit(0),

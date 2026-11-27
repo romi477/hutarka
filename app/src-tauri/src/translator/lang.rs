@@ -17,14 +17,6 @@ impl Lang {
             Lang::Ru => "Russian",
         }
     }
-
-    pub fn code(self) -> &'static str {
-        match self {
-            Lang::En => "EN",
-            Lang::Pl => "PL",
-            Lang::Ru => "RU",
-        }
-    }
 }
 
 /// A translation direction; only these four exist.
@@ -41,13 +33,6 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub const ALL: [Direction; 4] = [
-        Direction::EnRu,
-        Direction::EnPl,
-        Direction::PlEn,
-        Direction::RuEn,
-    ];
-
     pub fn from(self) -> Lang {
         match self {
             Direction::EnRu | Direction::EnPl => Lang::En,
@@ -150,6 +135,5 @@ mod tests {
         assert_eq!(Direction::PlEn.from(), Lang::Pl);
         assert_eq!(Direction::PlEn.to(), Lang::En);
         assert_eq!(Lang::Pl.name(), "Polish");
-        assert_eq!(Lang::Pl.code(), "PL");
     }
 }
