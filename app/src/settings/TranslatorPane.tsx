@@ -21,7 +21,7 @@ function specOf(view: SettingsView, id: PromptId): PromptSpec {
   return view.prompts.translate[id.slice("translate:".length) as keyof SettingsView["prompts"]["translate"]];
 }
 
-export function TranslatorPane({ view }: { view: SettingsView }) {
+export function TranslatorPane({ view, onChange }: { view: SettingsView; onChange: () => void }) {
   const [selected, setSelected] = useState<PromptId>("explain");
   const [spec, setSpec] = useState<PromptSpec>(specOf(view, "explain"));
   const [status, setStatus] = useState("");
@@ -33,12 +33,15 @@ export function TranslatorPane({ view }: { view: SettingsView }) {
     setSpec(next);
     await settings.setPrompt(selected, next);
     setStatus("Saved");
+    // The parent re-reads the settings, so switching prompts shows saved text.
+    onChange();
   };
 
   const reset = async () => {
     const def = await settings.resetPrompt(selected);
     setSpec(def);
     setStatus("Default restored");
+    onChange();
   };
 
   const pick = (id: PromptId) => {

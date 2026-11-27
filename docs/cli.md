@@ -32,6 +32,8 @@ echo 'export HUTARKA_API_KEY="sk-ant-..."' >> ~/.zshrc
 
 There is deliberately no `--key` flag: a key on the command line would end up in shell history and in the process list. Leading and trailing whitespace in the variable is ignored.
 
+`HUTARKA_BASE_URL` (optional) sends requests to another Anthropic-compatible endpoint instead of `https://api.anthropic.com`; the key and the text go there. Leave it unset unless you mean it. The tests use it to point the CLI at a local mock server.
+
 ## Usage
 
 ```

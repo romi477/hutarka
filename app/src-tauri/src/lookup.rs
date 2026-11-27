@@ -61,6 +61,9 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     snapshot: Mutex<Snapshot>,
     task: Mutex<Option<JoinHandle<()>>>,
+    /// One HTTP client per API key, reused so a lookup skips the TCP and TLS
+    /// handshake with the API.
+    client: Mutex<Option<(String, Client)>>,
 }
 
 impl AppState {
@@ -84,6 +87,7 @@ impl AppState {
             settings: Mutex::new(settings),
             snapshot: Mutex::new(snapshot),
             task: Mutex::new(None),
+            client: Mutex::new(None),
         }
     }
 
@@ -127,6 +131,22 @@ impl AppState {
         }
         *snap = next;
         Some(snap.clone())
+    }
+
+    /// The client for `key`: the kept one, or a new one when the key changed.
+    fn client_for(&self, key: &str) -> Result<Client, hutarka_llm::Error> {
+        let mut slot = self
+            .client
+            .lock()
+            .map_err(|_| hutarka_llm::Error::Setup("client lock poisoned".into()))?;
+        if let Some((k, client)) = slot.as_ref()
+            && k == key
+        {
+            return Ok(client.clone());
+        }
+        let client = Client::new(key.to_string(), DEFAULT_BASE_URL.to_string())?;
+        *slot = Some((key.to_string(), client.clone()));
+        Ok(client)
     }
 
     fn abort_task(&self) {
@@ -282,9 +302,20 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind, from_sel
         });
         return;
     }
+    let client = match state.client_for(&key) {
+        Ok(client) => client,
+        Err(e) => {
+            log::error!("lookup {id}: {e}");
+            state.update(app, id, |s| {
+                s.status = Status::Error;
+                s.error_kind = Some(ErrorKind::Api);
+                s.error = e.to_string();
+            });
+            return;
+        }
+    };
     let handle = app.clone();
     let task = tauri::async_runtime::spawn(async move {
-        let client = Client::new(key, DEFAULT_BASE_URL.to_string());
         let started = Instant::now();
         let state = handle.state::<AppState>();
         let outcome = client
@@ -368,6 +399,11 @@ pub fn rerun(app: AppHandle, direction: Direction, explain: bool) {
     start(&app, snap.text, direction, kind, snap.from_selection);
 }
 
+/// The answer Copy and Replace may use: a finished, non-empty one.
+fn finished_result(snap: &Snapshot) -> Option<String> {
+    (snap.status == Status::Done && !snap.result.is_empty()).then(|| snap.result.clone())
+}
+
 /// Translates text typed (or edited) in the popup; `direction` None detects it.
 /// `from_selection`: the edited text still stands for a selection Replace can paste over.
 #[tauri::command]
@@ -400,11 +436,14 @@ pub fn translate_text(
 #[tauri::command]
 pub fn copy_result(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    let result = app
+    // Only a finished answer: never a half-streamed one or an empty string.
+    let Some(result) = app
         .state::<AppState>()
         .snapshot()
-        .map(|s| s.result)
-        .unwrap_or_default();
+        .and_then(|s| finished_result(&s))
+    else {
+        return Ok(());
+    };
     app.clipboard()
         .write_text(result)
         .map_err(|e| e.to_string())?;
@@ -414,14 +453,13 @@ pub fn copy_result(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn replace_result(app: AppHandle) -> Result<(), String> {
-    let result = app
+    let Some(result) = app
         .state::<AppState>()
         .snapshot()
-        .map(|s| s.result)
-        .unwrap_or_default();
-    if result.is_empty() {
+        .and_then(|s| finished_result(&s))
+    else {
         return Ok(());
-    }
+    };
     popup::hide(&app);
     // Let the source app's window take the keyboard back before ⌘V.
     thread::sleep(Duration::from_millis(80));
@@ -459,6 +497,21 @@ pub fn open_accessibility(app: AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_finished_answer_is_copied() {
+        let state = AppState::new(crate::settings::defaults().clone());
+        let mut snap = state.snapshot().expect("snapshot");
+        snap.result = "half".into();
+        snap.status = Status::Streaming;
+        assert_eq!(finished_result(&snap), None);
+        snap.status = Status::Error;
+        assert_eq!(finished_result(&snap), None);
+        snap.status = Status::Done;
+        assert_eq!(finished_result(&snap), Some("half".into()));
+        snap.result.clear();
+        assert_eq!(finished_result(&snap), None);
+    }
 
     #[test]
     fn typed_text_without_direction_detects_it() {

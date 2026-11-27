@@ -128,6 +128,7 @@ hutarka --to en "текст"                  # plain literal translation
 - `--to <lang>`: plain one-to-one translation with no extra processing. It sends one fixed minimal prompt, printed verbatim by `hutarka --help` so nothing is hidden: `Translate the text to <lang>. Output only the translation.` (lang: `en`, `ru`, `be`, `pl` or any language name). `--to` and `--prompt` are mutually exclusive; exactly one is required.
 - `--model` (optional, default `claude-haiku-5-5`). No other hidden settings.
 - Key: `HUTARKA_API_KEY` environment variable. No `--key` flag: keys on the command line end up in shell history and `ps`.
+- `HUTARKA_BASE_URL` (optional, documented in `docs/cli.md`): another Anthropic-compatible endpoint; the tests use it for a mock server. The app always uses the public API.
 - Output is the model's text only, so it composes in pipes and shell aliases (an alias or script is where a reusable prompt lives on the shell side).
 - Built first, before the app: it is tiny and immediately tests prompt quality and Haiku latency on real text.
 
@@ -234,6 +235,6 @@ Tracked in `README.md` ("Open questions"). The latency question (dictation must 
 
 ## Conventions
 
-- Rust: `cargo fmt` and `cargo clippy` clean; explicit error handling, no `unwrap` outside tests.
+- Rust: `cargo fmt` and `cargo clippy` clean; explicit error handling, no `unwrap` outside tests. One exception: `expect` on parsing a file embedded with `include_str!` (such as `resources/default-settings.json`) when a test parses the same file; a broken embedded file is a build bug, not a runtime error.
 - Prefer deleting unused Handy code over feature-flagging it.
 - Commit messages in English.

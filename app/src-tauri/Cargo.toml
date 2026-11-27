@@ -28,6 +28,9 @@ whatlang = "0.16"
 chrono = "0.4"
 objc2-core-foundation = { version = "0.3", features = ["CFString", "CFBase"] }
 enigo = "0.6"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSData", "NSString"] }
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard", "NSPasteboardItem"] }
 objc2-application-services = { version = "0.3", features = ["HIServices", "AXUIElement", "AXError", "AXAttributeConstants"] }
 tauri-plugin-log = "2"
 

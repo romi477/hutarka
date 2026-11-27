@@ -139,7 +139,7 @@ export function Popup() {
         e.preventDefault();
         if (menu) setMenu(false);
         else popup.close();
-      } else if (e.metaKey && e.key.toLowerCase() === "c") {
+      } else if (e.metaKey && e.key.toLowerCase() === "c" && snap.status === "done") {
         // Copy the whole answer unless the user selected part of it.
         if (!window.getSelection()?.toString()) {
           e.preventDefault();
@@ -154,7 +154,7 @@ export function Popup() {
         popup.replace();
       } else if (e.metaKey && e.key.toLowerCase() === "e") {
         e.preventDefault();
-        run(snap.text || draft.trim() ? snap.direction : null, !snap.explain);
+        run(draft !== snap.text ? null : snap.direction, !snap.explain);
       } else if (e.metaKey && ["1", "2", "3", "4"].includes(e.key)) {
         e.preventDefault();
         run(DIRECTIONS[Number(e.key) - 1].id, snap.explain);
@@ -258,7 +258,7 @@ export function Popup() {
                   checked={snap.explain}
                   onChange={() =>
                     run(
-                      snap.text || draft.trim() ? snap.direction : null,
+                      draft !== snap.text ? null : snap.direction,
                       !snap.explain,
                     )
                   }

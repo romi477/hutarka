@@ -1,5 +1,5 @@
 //! Reading the selected text of the frontmost app: Accessibility API first,
-//! then a ⌘C round trip through the clipboard (restored afterwards).
+//! then a ⌘C round trip through the clipboard (all of it restored afterwards).
 
 use std::ptr::NonNull;
 use std::thread;
@@ -11,7 +11,7 @@ use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use crate::clipboard_lock::ClipboardLock;
-use crate::keys;
+use crate::{keys, pasteboard};
 
 /// Written to the clipboard before ⌘C: still there afterwards means the app
 /// copied nothing.
@@ -82,8 +82,12 @@ fn ax_selected_text() -> Option<String> {
 fn copy_selection(app: &AppHandle) -> Option<String> {
     let _lock = ClipboardLock::acquire();
     let clipboard = app.clipboard();
-    let saved = clipboard.read_text().ok();
-    clipboard.write_text(SENTINEL).ok()?;
+    // Everything on the clipboard (images, files, rich text), not just text.
+    let saved = pasteboard::save();
+    if clipboard.write_text(SENTINEL).is_err() {
+        pasteboard::restore(&saved);
+        return None;
+    }
     let copied = keys::command_c().ok().and_then(|_| {
         let start = Instant::now();
         loop {
@@ -97,13 +101,7 @@ fn copy_selection(app: &AppHandle) -> Option<String> {
             thread::sleep(POLL);
         }
     });
-    let restored = match saved {
-        Some(text) => clipboard.write_text(text),
-        None => clipboard.clear(),
-    };
-    if let Err(e) = restored {
-        log::error!("cannot restore the clipboard: {e}");
-    }
+    pasteboard::restore(&saved);
     copied.filter(|t| !t.trim().is_empty())
 }
 

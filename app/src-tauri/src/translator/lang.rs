@@ -52,13 +52,48 @@ impl Direction {
 
 const POLISH_LETTERS: &str = "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ";
 
-/// Any Cyrillic letter means Russian; Polish letters or `whatlang` mean
-/// Polish; anything else is English.
+/// Common Polish words as people type them without diacritics.
+const POLISH_WORDS: &[&str] = &[
+    "albo", "bardzo", "bez", "byl", "bylo", "chce", "czesc", "czlowiek", "dla", "dlaczego",
+    "dobry", "dobrze", "dom", "dzien", "dzieki", "dziekuje", "dzis", "gdzie", "jak", "jest",
+    "jestem", "jestes", "jestesmy", "jutro", "juz", "kiedy", "kot", "ktora", "ktore", "ktory",
+    "mam", "masz", "miasto", "moze", "nie", "oraz", "pies", "praca", "prosze", "przez", "przy",
+    "rok", "samochod", "sie", "tak", "teraz", "tez", "tylko", "wczoraj", "wiem", "woda",
+    "wszystko",
+];
+
+/// Letter pairs frequent in Polish and rare in English.
+const POLISH_DIGRAPHS: &[&str] = &["rz", "sz", "cz", "dz"];
+
+/// Polish typed without diacritics: at least half of the words are common
+/// Polish words or carry a Polish digraph. Short text is where `whatlang`
+/// guesses badly.
+fn looks_polish(text: &str) -> bool {
+    let words: Vec<String> = text
+        .split(|c: char| !c.is_alphabetic())
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    if words.is_empty() {
+        return false;
+    }
+    let polish = words
+        .iter()
+        .filter(|w| {
+            POLISH_WORDS.contains(&w.as_str()) || POLISH_DIGRAPHS.iter().any(|d| w.contains(d))
+        })
+        .count();
+    polish * 2 >= words.len()
+}
+
+/// Any Cyrillic letter means Russian; Polish letters, common Polish words or
+/// `whatlang` mean Polish; anything else is English.
 pub fn detect_lang(text: &str) -> Lang {
     if text.chars().any(|c| matches!(c, '\u{0400}'..='\u{04FF}')) {
         return Lang::Ru;
     }
     if text.chars().any(|c| POLISH_LETTERS.contains(c))
+        || looks_polish(text)
         || whatlang::detect_lang(text) == Some(whatlang::Lang::Pol)
     {
         return Lang::Pl;
@@ -79,6 +114,35 @@ pub fn auto_direction(text: &str, english_target: Lang) -> Direction {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn polish_without_diacritics_is_polish() {
+        for text in [
+            "dziekuje",
+            "bardzo dobrze",
+            "samochod",
+            "miasto",
+            "kot",
+            "dom",
+            "czesc, jak sie masz",
+        ] {
+            assert_eq!(detect_lang(text), Lang::Pl, "{text}");
+        }
+    }
+
+    #[test]
+    fn english_with_no_polish_words_stays_english() {
+        for text in [
+            "hello world",
+            "the cat is at home",
+            "leverage",
+            "domain",
+            "cooperation",
+            "pizza",
+        ] {
+            assert_eq!(detect_lang(text), Lang::En, "{text}");
+        }
+    }
 
     #[test]
     fn cyrillic_is_russian() {

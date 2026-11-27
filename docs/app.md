@@ -46,11 +46,11 @@ Select text, press **⌃⌥T** (or menu bar › Translate selection).
 
 **The original** sits above the answer, collapsed to one line. Click it to open it, edit the text or write a new one, and translate again with ⌘↵. The direction is detected again for new text; picking one in the direction menu translates the edited text in that direction.
 
-- **Direction** is automatic: English goes to Russian, Polish and Russian go to English. The direction button in the popup header switches between EN → RU, EN → PL, PL → EN and RU → EN. Choosing EN → RU or EN → PL by hand makes it the default for English from then on.
+- **Direction** is automatic: English goes to Russian, Polish and Russian go to English. Polish typed without diacritics ("dziekuje", "bardzo dobrze") is recognized by common words and letter pairs (rz, sz, cz, dz). The direction button in the popup header switches between EN → RU, EN → PL, PL → EN and RU → EN. Choosing EN → RU or EN → PL by hand makes it the default for English from then on.
 - **Word or text.** One to three words (no sentence punctuation) get a short dictionary entry: meanings with part of speech, examples, collocations. Longer text gets a plain translation.
 - **Explain** (checkbox in the header, ⌘E) gives a deeper answer instead: the meaning, five common sentences with translations, and a note on typical mistakes. The checkbox state is remembered.
 - **Copy** (⌘C) copies the answer and closes the popup. If you selected part of the answer in the popup, ⌘C copies only that part and the popup stays open.
-- **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields. Not shown for typed text.
+- **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields. Whatever was on your clipboard (text, images, files) comes back afterwards. Not shown for typed text.
 - **Move** the popup by dragging its header. It grows with the answer up to the screen's height; only a longer answer scrolls.
 - **Esc** or a click outside closes the popup.
 
@@ -99,6 +99,5 @@ Edited prompts are kept as they are when a new version ships different default p
 
 ## Known limits
 
-- Replace and the ⌘C fallback restore only text on the clipboard. Images or files copied before are lost.
 - The hotkey is a key combination. Single-key and double-tap triggers come later.
 - Only Anthropic models.

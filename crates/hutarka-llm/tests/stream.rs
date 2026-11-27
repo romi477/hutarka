@@ -26,7 +26,7 @@ fn sse(body: String) -> ResponseTemplate {
 }
 
 fn client(server: &MockServer) -> Client {
-    Client::new("test-key".into(), server.uri())
+    Client::new("test-key".into(), server.uri()).expect("client")
 }
 
 async fn run(server: &MockServer) -> (Result<String, Error>, Vec<String>) {

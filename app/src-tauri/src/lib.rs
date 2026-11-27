@@ -6,6 +6,7 @@ mod journal;
 mod keys;
 mod lookup;
 mod paste;
+mod pasteboard;
 mod popup;
 mod selection;
 mod session;

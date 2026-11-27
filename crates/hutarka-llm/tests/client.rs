@@ -11,7 +11,7 @@ fn answer(text: &str) -> ResponseTemplate {
 }
 
 fn client(server: &MockServer) -> Client {
-    Client::new("test-key".into(), server.uri())
+    Client::new("test-key".into(), server.uri()).expect("client")
 }
 
 #[tokio::test]
@@ -82,7 +82,7 @@ async fn api_error_without_json_body_keeps_status() {
 
 #[tokio::test]
 async fn network_failure_names_its_cause() {
-    let client = Client::new("k".into(), "http://127.0.0.1:9".into());
+    let client = Client::new("k".into(), "http://127.0.0.1:9".into()).expect("client");
     let got = client.complete(&Request::new("m", "s", "t")).await;
     match got {
         Err(Error::Network(msg)) => assert!(msg.to_lowercase().contains("refused"), "{msg}"),

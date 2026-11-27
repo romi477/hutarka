@@ -64,7 +64,7 @@ export function Settings() {
           ) : section === "llm" ? (
             <LlmPane view={view} onChange={reload} />
           ) : (
-            <TranslatorPane view={view} />
+            <TranslatorPane view={view} onChange={reload} />
           ))}
       </main>
     </div>

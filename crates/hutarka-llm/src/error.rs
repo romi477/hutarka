@@ -19,4 +19,6 @@ pub enum Error {
     BadResponse(String),
     #[error("stream error: {0}")]
     Stream(String),
+    #[error("cannot create the HTTP client: {0}")]
+    Setup(String),
 }

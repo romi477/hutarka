@@ -6,7 +6,9 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use hutarka_llm::{Effort, Request};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
@@ -82,9 +84,33 @@ struct DefaultFile {
 
 #[derive(Deserialize)]
 struct DefaultPrompts {
-    translate: BTreeMap<Direction, PromptSpec>,
+    translate: DefaultTranslate,
     word: PromptSpec,
     explain: PromptSpec,
+}
+
+/// All four directions are required, so every direction has a default.
+#[derive(Deserialize)]
+struct DefaultTranslate {
+    #[serde(rename = "en-ru")]
+    en_ru: PromptSpec,
+    #[serde(rename = "en-pl")]
+    en_pl: PromptSpec,
+    #[serde(rename = "pl-en")]
+    pl_en: PromptSpec,
+    #[serde(rename = "ru-en")]
+    ru_en: PromptSpec,
+}
+
+impl DefaultTranslate {
+    fn spec(&self, dir: Direction) -> &PromptSpec {
+        match dir {
+            Direction::EnRu => &self.en_ru,
+            Direction::EnPl => &self.en_pl,
+            Direction::PlEn => &self.pl_en,
+            Direction::RuEn => &self.ru_en,
+        }
+    }
 }
 
 /// Settings as shipped. The embedded file is checked by the tests, so a
@@ -100,7 +126,15 @@ pub fn defaults() -> &'static Settings {
             english_target: f.english_target,
             explain: f.explain,
             prompts: Prompts {
-                translate: f.prompts.translate,
+                translate: [
+                    Direction::EnRu,
+                    Direction::EnPl,
+                    Direction::PlEn,
+                    Direction::RuEn,
+                ]
+                .into_iter()
+                .map(|d| (d, f.prompts.translate.spec(d).clone()))
+                .collect(),
                 word: f.prompts.word,
                 explain: f.prompts.explain,
             },
@@ -171,6 +205,7 @@ impl Prompts {
     }
 }
 
+/// Never panics: `defaults()` fills the map from every `Direction` variant.
 fn defaults_spec(dir: Direction) -> &'static PromptSpec {
     &defaults().prompts.translate[&dir]
 }
@@ -224,14 +259,90 @@ pub fn load(app: &AppHandle) -> Settings {
         .map_err(|e| log::error!("cannot open settings store: {e}"))
         .ok()
         .and_then(|store| store.get(STORE_KEY));
-    match stored.map(serde_json::from_value::<Settings>) {
-        Some(Ok(s)) => s,
-        Some(Err(e)) => {
-            log::error!("stored settings are invalid, using defaults: {e}");
-            Settings::default()
-        }
-        None => Settings::default(),
+    let Some(stored) = stored else {
+        return Settings::default();
+    };
+    let (settings, bad) = from_stored(stored);
+    if !bad.is_empty() {
+        log::error!(
+            "invalid stored settings, defaults used for: {}",
+            bad.join(", ")
+        );
     }
+    settings
+}
+
+/// Reads stored settings field by field: an invalid field (hand edit, older
+/// format) takes its default and is named in the returned list, while the
+/// rest (the key, edited prompts) is kept, so the next save does not wipe it.
+fn from_stored(stored: Value) -> (Settings, Vec<String>) {
+    let mut s = Settings::default();
+    let mut bad = Vec::new();
+    let Some(obj) = stored.as_object() else {
+        return (s, vec!["settings".into()]);
+    };
+    fn take<T: DeserializeOwned>(
+        v: Option<&Value>,
+        name: &str,
+        slot: &mut T,
+        bad: &mut Vec<String>,
+    ) {
+        if let Some(v) = v {
+            match serde_json::from_value(v.clone()) {
+                Ok(x) => *slot = x,
+                Err(_) => bad.push(name.to_string()),
+            }
+        }
+    }
+    take(obj.get("api_key"), "api_key", &mut s.api_key, &mut bad);
+    take(obj.get("hotkey"), "hotkey", &mut s.hotkey, &mut bad);
+    take(
+        obj.get("english_target"),
+        "english_target",
+        &mut s.english_target,
+        &mut bad,
+    );
+    take(obj.get("explain"), "explain", &mut s.explain, &mut bad);
+    match obj.get("prompts") {
+        None => {}
+        Some(Value::Object(prompts)) => {
+            if let Some(translate) = prompts.get("translate") {
+                match translate.as_object() {
+                    Some(map) => {
+                        for (code, spec) in map {
+                            let name = format!("prompts.translate.{code}");
+                            match serde_json::from_value::<Direction>(Value::from(code.as_str())) {
+                                Ok(dir) => {
+                                    let slot = s
+                                        .prompts
+                                        .translate
+                                        .entry(dir)
+                                        .or_insert_with(|| defaults_spec(dir).clone());
+                                    take(Some(spec), &name, slot, &mut bad);
+                                }
+                                Err(_) => bad.push(name),
+                            }
+                        }
+                    }
+                    None => bad.push("prompts.translate".into()),
+                }
+            }
+            take(
+                prompts.get("word"),
+                "prompts.word",
+                &mut s.prompts.word,
+                &mut bad,
+            );
+            take(
+                prompts.get("explain"),
+                "prompts.explain",
+                &mut s.prompts.explain,
+                &mut bad,
+            );
+        }
+        Some(_) => bad.push("prompts".into()),
+    }
+    (s, bad)
 }
 
 pub fn save(app: &AppHandle, settings: &Settings) -> Result<(), String> {
@@ -244,6 +355,37 @@ pub fn save(app: &AppHandle, settings: &Settings) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_invalid_field_keeps_the_others() {
+        let mut stored = serde_json::to_value(defaults()).expect("value");
+        stored["api_key"] = "sk-kept".into();
+        stored["english_target"] = "de".into();
+        stored["prompts"]["word"]["system"] = "my word prompt".into();
+        let (s, bad) = from_stored(stored);
+        assert_eq!(s.api_key, "sk-kept");
+        assert_eq!(s.english_target, defaults().english_target);
+        assert_eq!(s.prompts.word.system, "my word prompt");
+        assert_eq!(bad, vec!["english_target".to_string()]);
+    }
+
+    #[test]
+    fn one_invalid_prompt_keeps_the_other_prompts() {
+        let mut stored = serde_json::to_value(defaults()).expect("value");
+        stored["prompts"]["word"]["system"] = "my word prompt".into();
+        stored["prompts"]["explain"]["effort"] = "ultra".into();
+        let (s, bad) = from_stored(stored);
+        assert_eq!(s.prompts.word.system, "my word prompt");
+        assert_eq!(s.prompts.explain, defaults().prompts.explain);
+        assert_eq!(bad, vec!["prompts.explain".to_string()]);
+    }
+
+    #[test]
+    fn valid_stored_settings_report_nothing() {
+        let (s, bad) = from_stored(serde_json::to_value(defaults()).expect("value"));
+        assert_eq!(&s, defaults());
+        assert!(bad.is_empty());
+    }
     use hutarka_llm::Effort;
 
     #[test]

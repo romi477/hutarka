@@ -11,7 +11,9 @@ use crate::{Error, Request, build_body, parse_response};
 pub const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
 const API_VERSION: &str = "2026-10-21";
 
-/// Anthropic Messages API client.
+/// Anthropic Messages API client. Cheap to clone: clones share one
+/// connection pool, so keeping one client avoids a new TLS handshake per call.
+#[derive(Clone)]
 pub struct Client {
     http: reqwest::Client,
     base_url: String,
@@ -19,17 +21,18 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(api_key: String, base_url: String) -> Self {
+    /// Connect timeout 10 s, whole request 120 s.
+    pub fn new(api_key: String, base_url: String) -> Result<Self, Error> {
         let http = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(120))
             .build()
-            .unwrap_or_default();
-        Client {
+            .map_err(|e| Error::Setup(e.to_string()))?;
+        Ok(Client {
             http,
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key,
-        }
+        })
     }
 
     /// Key from `HUTARKA_API_KEY`; base URL from `HUTARKA_BASE_URL`, else the
@@ -44,7 +47,7 @@ impl Client {
             .ok()
             .filter(|b| !b.trim().is_empty())
             .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
-        Ok(Client::new(key, base))
+        Client::new(key, base)
     }
 
     /// Sends one request and returns the answer's text.

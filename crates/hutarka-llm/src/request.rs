@@ -63,9 +63,6 @@ pub fn build_body(req: &Request) -> Value {
     })
 }
 
-/// The answer's text: every `text` block joined, other blocks skipped.
-/// Only a normal finish (`end_turn`, `stop_sequence`) counts: a refusal or any
-/// other stop reason is an error, never a partial result.
 /// The body of a streamed request: `build_body` plus `"stream": true`.
 pub fn build_stream_body(req: &Request) -> Value {
     let mut body = build_body(req);
@@ -84,6 +81,9 @@ pub(crate) fn check_stop(reason: Option<&str>) -> Result<(), Error> {
     }
 }
 
+/// The answer's text: every `text` block joined, other blocks skipped.
+/// Only a normal finish (`end_turn`, `stop_sequence`) counts: a refusal or any
+/// other stop reason is an error, never a partial result.
 pub fn parse_response(body: &Value) -> Result<String, Error> {
     let content = body
         .get("content")
