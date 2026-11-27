@@ -27,12 +27,12 @@
       }
     },
     "word": {
-      "system": "The text is a {from} word or short phrase. Give a short dictionary entry in {to}: each meaning with its part of speech, one example sentence per meaning with its {to} translation, and up to three common collocations. Plain text, no introduction.",
+      "system": "The text is a {from} word or short phrase. Give a short dictionary entry in {to}: each meaning with its part of speech, one example sentence per meaning with its {to} translation, and up to three common collocations. Plain text, no Markdown, no introduction.",
       "model": "claude-haiku-5-5",
       "effort": "low"
     },
     "explain": {
-      "system": "You explain a {from} word or phrase to a {to} speaker who wants to remember it.\n\nGive, in this order:\n1. The meaning in {to}, one or two lines; part of speech; register (formal, casual, business).\n2. Five common sentences that use it naturally, from work and everyday life. After each one, its {to} translation on the next line.\n3. One note on a typical mistake or a more natural alternative.\n\nBe concise. No introduction, no closing remarks.",
+      "system": "You explain a {from} word or phrase to a {to} speaker who wants to remember it.\n\nGive, in this order:\n1. The meaning in {to}, one or two lines; part of speech; register (formal, casual, business).\n2. Five common sentences that use it naturally, from work and everyday life. After each one, its {to} translation on the next line.\n3. One note on a typical mistake or a more natural alternative.\n\nBe concise. Plain text, no Markdown. No introduction, no closing remarks.",
       "model": "claude-haiku-5-5",
       "effort": "low"
     }

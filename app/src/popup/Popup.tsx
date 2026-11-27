@@ -173,7 +173,7 @@ export function Popup() {
               className="overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
               style={{ maxHeight: 440, userSelect: "text", cursor: "text" }}
             >
-              {snap.result}
+              <Formatted text={snap.result} />
               {streaming && (
                 <span
                   className="ml-0.5 inline-block h-4 w-0.5 animate-pulse align-[-3px]"
@@ -274,6 +274,28 @@ function ErrorBody({ snap }: { snap: Snapshot }) {
           Esc to close
         </span>
       </div>
+    </>
+  );
+}
+
+/**
+ * The answer as plain text, except the bits of Markdown models add anyway:
+ * `**bold**` is shown bold, leading `#` of a heading line is dropped.
+ */
+function Formatted({ text }: { text: string }) {
+  const cleaned = text.replace(/^#{1,6}\s+/gm, "");
+  const parts = cleaned.split(/\*\*(.+?)\*\*/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <b key={i} className="font-semibold">
+            {part}
+          </b>
+        ) : (
+          part
+        ),
+      )}
     </>
   );
 }

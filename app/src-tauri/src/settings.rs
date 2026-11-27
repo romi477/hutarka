@@ -264,6 +264,14 @@ mod tests {
     }
 
     #[test]
+    fn default_prompts_ask_for_plain_text() {
+        let p = &defaults().prompts;
+        for spec in [&p.word, &p.explain] {
+            assert!(spec.system.contains("no Markdown"), "{}", spec.system);
+        }
+    }
+
+    #[test]
     fn missing_fields_take_defaults() {
         let s: Settings = serde_json::from_str(r#"{"api_key":"k"}"#).unwrap();
         assert_eq!(s.api_key, "k");
