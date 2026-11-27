@@ -38,6 +38,7 @@ export const popup = {
   replace: () => invoke("replace_result"),
   close: () => invoke("close_popup"),
   resize: (height: number) => invoke("resize_popup", { height }),
+  dragged: () => invoke("popup_dragged"),
   openSettings: (section?: string) => invoke("open_settings", { section: section ?? null }),
   openAccessibility: () => invoke("open_accessibility"),
 };

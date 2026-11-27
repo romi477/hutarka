@@ -35,14 +35,14 @@ tauri_panel! {
 }
 
 /// Where the popup was opened (physical screen coordinates of the mouse), and
-/// where Hutarka last put it: a different position means the user dragged it.
+/// whether the user dragged it since.
 #[derive(Default)]
 pub struct Anchor(Mutex<Placed>);
 
 #[derive(Default)]
 pub struct Placed {
     mouse: Option<PhysicalPosition<f64>>,
-    last: Option<PhysicalPosition<i32>>,
+    dragged: bool,
 }
 
 /// A monitor's work area, physical pixels.
@@ -118,7 +118,7 @@ pub fn show_near_cursor(app: &AppHandle) {
     {
         *placed = Placed {
             mouse: Some(cursor),
-            last: None,
+            dragged: false,
         };
     }
     place(app, INITIAL_HEIGHT);
@@ -141,6 +141,14 @@ pub fn hide(app: &AppHandle) {
     });
 }
 
+/// The page saw a drag start on the header: from now on the popup stays
+/// where the user puts it.
+pub fn mark_dragged(app: &AppHandle) {
+    if let Ok(mut placed) = app.state::<Anchor>().0.lock() {
+        placed.dragged = true;
+    }
+}
+
 /// New content height from the page: resize, keep the popup on screen.
 pub fn resize(app: &AppHandle, height: f64) {
     place(app, height.max(MIN_HEIGHT));
@@ -153,7 +161,7 @@ fn place(app: &AppHandle, height: f64) {
         return;
     };
     let anchor = app.state::<Anchor>();
-    let Ok(mut placed) = anchor.0.lock() else {
+    let Ok(placed) = anchor.0.lock() else {
         return;
     };
     let Some(mouse) = placed.mouse else {
@@ -177,8 +185,8 @@ fn place(app: &AppHandle, height: f64) {
     };
     let height = height.min(work.size.height as f64 / scale);
     let current = window.outer_position().ok();
-    let dropped = match (placed.last, current) {
-        (Some(last), Some(now)) if last != now => Some((now.x as f64, now.y as f64)),
+    let dropped = match (placed.dragged, current) {
+        (true, Some(now)) => Some((now.x as f64, now.y as f64)),
         _ => None,
     };
     let (x, y) = origin(
@@ -197,39 +205,64 @@ fn place(app: &AppHandle, height: f64) {
         height,
     }));
     let _ = window.set_position(Position::Physical(pos));
-    placed.last = Some(pos);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const AREA: Area = Area { left: 0.0, top: 0.0, right: 1000.0, bottom: 800.0 };
+    const AREA: Area = Area {
+        left: 0.0,
+        top: 0.0,
+        right: 1000.0,
+        bottom: 800.0,
+    };
 
     #[test]
     fn opens_below_right_of_mouse() {
-        assert_eq!(origin((100.0, 100.0), None, (400.0, 300.0), 8.0, AREA), (108.0, 108.0));
+        assert_eq!(
+            origin((100.0, 100.0), None, (400.0, 300.0), 8.0, AREA),
+            (108.0, 108.0)
+        );
     }
 
     #[test]
     fn opens_above_when_no_room_below() {
-        assert_eq!(origin((100.0, 700.0), None, (400.0, 300.0), 8.0, AREA), (108.0, 392.0));
+        assert_eq!(
+            origin((100.0, 700.0), None, (400.0, 300.0), 8.0, AREA),
+            (108.0, 392.0)
+        );
     }
 
     #[test]
     fn taller_than_room_above_sticks_to_top() {
-        assert_eq!(origin((100.0, 300.0), None, (400.0, 700.0), 8.0, AREA), (108.0, 0.0));
+        assert_eq!(
+            origin((100.0, 300.0), None, (400.0, 700.0), 8.0, AREA),
+            (108.0, 0.0)
+        );
     }
 
     #[test]
     fn moved_by_user_stays_where_dropped() {
-        let pos = origin((100.0, 100.0), Some((500.0, 200.0)), (400.0, 300.0), 8.0, AREA);
+        let pos = origin(
+            (100.0, 100.0),
+            Some((500.0, 200.0)),
+            (400.0, 300.0),
+            8.0,
+            AREA,
+        );
         assert_eq!(pos, (500.0, 200.0));
     }
 
     #[test]
     fn moved_by_user_grows_up_at_the_bottom() {
-        let pos = origin((100.0, 100.0), Some((500.0, 600.0)), (400.0, 300.0), 8.0, AREA);
+        let pos = origin(
+            (100.0, 100.0),
+            Some((500.0, 600.0)),
+            (400.0, 300.0),
+            8.0,
+            AREA,
+        );
         assert_eq!(pos, (500.0, 500.0));
     }
 }

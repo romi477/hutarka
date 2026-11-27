@@ -117,7 +117,13 @@ export function Popup() {
         ) : (
           <>
             {/* Drag the header to move the popup (only elements marked as drag regions start a drag). */}
-            <div data-tauri-drag-region className="flex cursor-grab items-center gap-2 pt-2.5 pr-2.5 pl-3.5">
+            <div
+              data-tauri-drag-region
+              onMouseDown={(e) => {
+                if ((e.target as HTMLElement).hasAttribute("data-tauri-drag-region")) popup.dragged();
+              }}
+              className="flex cursor-grab items-center gap-2 pt-2.5 pr-2.5 pl-3.5"
+            >
               {showsWord && (
                 <span data-tauri-drag-region className="truncate text-[17px] font-semibold" style={{ maxWidth: 300 }}>
                   {snap.text.trim()}
