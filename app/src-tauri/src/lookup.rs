@@ -92,16 +92,38 @@ impl AppState {
         self.settings.lock().map(|s| s.clone()).unwrap_or_default()
     }
 
-    /// Changes the snapshot of lookup `id` (ignored when stale) and sends it.
+    /// Changes the snapshot of lookup `id` and sends it. Ignored unless `id` is
+    /// the current lookup and the popup already shows it; both are checked under
+    /// the lock, so a delta of an old lookup never lands in a new one.
     fn update(&self, app: &AppHandle, id: u64, change: impl FnOnce(&mut Snapshot)) {
-        if !self.sessions.is_current(id) {
-            return;
+        if let Some(snap) = self.apply(id, change) {
+            let _ = app.emit_to(popup::LABEL, "popup:snapshot", snap);
         }
-        let Ok(mut snap) = self.snapshot.lock() else {
-            return;
-        };
+    }
+
+    fn apply(&self, id: u64, change: impl FnOnce(&mut Snapshot)) -> Option<Snapshot> {
+        let mut snap = self.snapshot.lock().ok()?;
+        if snap.id != id || !self.sessions.is_current(id) {
+            return None;
+        }
         change(&mut snap);
-        let _ = app.emit_to(popup::LABEL, "popup:snapshot", snap.clone());
+        Some(snap.clone())
+    }
+
+    /// Shows a new lookup (`next.id`) and sends it, unless a newer one began.
+    fn reset(&self, app: &AppHandle, next: Snapshot) {
+        if let Some(snap) = self.replace(next) {
+            let _ = app.emit_to(popup::LABEL, "popup:snapshot", snap);
+        }
+    }
+
+    fn replace(&self, next: Snapshot) -> Option<Snapshot> {
+        let mut snap = self.snapshot.lock().ok()?;
+        if !self.sessions.is_current(next.id) {
+            return None;
+        }
+        *snap = next;
+        Some(snap.clone())
     }
 
     fn abort_task(&self) {
@@ -159,12 +181,17 @@ fn fail(app: &AppHandle, kind: ErrorKind, message: String) {
     state.abort_task();
     let id = state.sessions.begin();
     let explain = state.settings().explain;
-    state.update(app, id, |s| {
-        *s = Snapshot {
+    let direction = state
+        .snapshot()
+        .map(|s| s.direction)
+        .unwrap_or(Direction::EnRu);
+    state.reset(
+        app,
+        Snapshot {
             id,
             status: Status::Error,
             text: String::new(),
-            direction: s.direction,
+            direction,
             kind: Kind::Text,
             explain,
             result: String::new(),
@@ -172,8 +199,8 @@ fn fail(app: &AppHandle, kind: ErrorKind, message: String) {
             ms: 0,
             error_kind: Some(kind),
             error: message,
-        };
-    });
+        },
+    );
 }
 
 /// Starts (or restarts) a lookup of `text`; any running one is cancelled.
@@ -183,8 +210,9 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
     let id = state.sessions.begin();
     let settings = state.settings();
     let req = build_request(&settings, &text, dir, kind);
-    state.update(app, id, |s| {
-        *s = Snapshot {
+    state.reset(
+        app,
+        Snapshot {
             id,
             status: Status::Streaming,
             text: text.clone(),
@@ -196,8 +224,8 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind) {
             ms: 0,
             error_kind: None,
             error: String::new(),
-        };
-    });
+        },
+    );
     log::info!(
         "lookup {id}: {dir:?} {kind:?}, {} chars, model {}",
         text.chars().count(),
@@ -337,6 +365,11 @@ pub fn close_popup(app: AppHandle) {
 }
 
 #[tauri::command]
+pub fn popup_dragged(app: AppHandle) {
+    popup::mark_dragged(&app);
+}
+
+#[tauri::command]
 pub fn resize_popup(app: AppHandle, height: f64) {
     popup::resize(&app, height);
 }
@@ -351,4 +384,46 @@ pub fn open_settings(app: AppHandle, section: Option<String>) {
 pub fn open_accessibility(app: AppHandle) {
     popup::hide(&app);
     crate::selection::open_accessibility_settings();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn snapshot_for(state: &AppState, id: u64) -> Snapshot {
+        let mut s = state.snapshot().expect("snapshot");
+        s.id = id;
+        s.status = Status::Streaming;
+        s.result.clear();
+        s
+    }
+
+    #[test]
+    fn delta_of_current_lookup_lands() {
+        let state = AppState::new(crate::settings::defaults().clone());
+        let a = state.sessions.begin();
+        state.replace(snapshot_for(&state, a));
+        assert!(state.apply(a, |s| s.result.push_str("hi")).is_some());
+        assert_eq!(state.snapshot().expect("snapshot").result, "hi");
+    }
+
+    #[test]
+    fn delta_of_old_lookup_after_restart_is_dropped() {
+        let state = AppState::new(crate::settings::defaults().clone());
+        let a = state.sessions.begin();
+        state.replace(snapshot_for(&state, a));
+        let b = state.sessions.begin();
+        state.replace(snapshot_for(&state, b));
+        assert!(state.apply(a, |s| s.result.push_str("old")).is_none());
+        assert_eq!(state.snapshot().expect("snapshot").result, "");
+    }
+
+    #[test]
+    fn delta_before_its_snapshot_is_reset_is_dropped() {
+        // The id is current but the popup still shows the previous lookup.
+        let state = AppState::new(crate::settings::defaults().clone());
+        let a = state.sessions.begin();
+        assert!(state.apply(a, |s| s.result.push_str("early")).is_none());
+        assert_eq!(state.snapshot().expect("snapshot").result, "");
+    }
 }
