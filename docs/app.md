@@ -44,9 +44,9 @@ Select text, press **⌃⌥T** (or menu bar › Translate selection).
 
 - **Direction** is automatic: English goes to Russian, Polish and Russian go to English. The direction button in the popup header switches between EN → RU, EN → PL, PL → EN and RU → EN. Choosing EN → RU or EN → PL by hand makes it the default for English from then on.
 - **Word or text.** One to three words (no sentence punctuation) get a short dictionary entry: meanings with part of speech, examples, collocations. Longer text gets a plain translation.
-- **Explain** (checkbox, ⌘E) gives a deeper answer instead: the meaning, five common sentences with translations, and a note on typical mistakes. The checkbox state is remembered.
-- **Copy** (⌘C) copies the answer. If you selected part of the answer in the popup, ⌘C copies only that part.
-- **Replace** (↵) pastes the answer over the original selection, for editable fields.
+- **Explain** (checkbox in the header, ⌘E) gives a deeper answer instead: the meaning, five common sentences with translations, and a note on typical mistakes. The checkbox state is remembered.
+- **Copy** (⌘C) copies the answer and closes the popup. If you selected part of the answer in the popup, ⌘C copies only that part and the popup stays open.
+- **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields.
 - **Move** the popup by dragging its header. It grows with the answer up to the screen's height; only a longer answer scrolls.
 - **Esc** or a click outside closes the popup.
 
@@ -60,7 +60,7 @@ Popup keys:
 | ⌘1 … ⌘4 | run again as EN → RU, EN → PL, PL → EN, RU → EN |
 | Esc | close |
 
-The header shows the model and the time the answer took.
+The header holds the direction, the Explain checkbox, the model with the time the answer took, and the close button.
 
 ## Settings
 

@@ -125,7 +125,7 @@ export function Popup() {
               className="flex cursor-grab items-center gap-2 pt-2.5 pr-2.5 pl-3.5"
             >
               {showsWord && (
-                <span data-tauri-drag-region className="truncate text-[17px] font-semibold" style={{ maxWidth: 300 }}>
+                <span data-tauri-drag-region className="truncate text-[17px] font-semibold" style={{ maxWidth: 200 }}>
                   {snap.text.trim()}
                 </span>
               )}
@@ -153,6 +153,16 @@ export function Popup() {
                   />
                 )}
               </div>
+              <label className="flex h-6 items-center gap-1.5 px-1 text-[12px]" title="Explain (⌘E)">
+                <input
+                  type="checkbox"
+                  checked={snap.explain}
+                  onChange={() => rerun(snap.direction, !snap.explain)}
+                  className="m-0 h-3.5 w-3.5"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                Explain
+              </label>
               <span data-tauri-drag-region className="flex-1 self-stretch" />
               <span data-tauri-drag-region className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--muted)" }}>
                 {streaming ? (
@@ -212,17 +222,6 @@ export function Popup() {
               >
                 Replace <span className="text-[11px] opacity-80">↵</span>
               </button>
-              <span className="flex-1" />
-              <label className="flex h-7 items-center gap-1.5 px-1.5 text-[12px]">
-                <input
-                  type="checkbox"
-                  checked={snap.explain}
-                  onChange={() => rerun(snap.direction, !snap.explain)}
-                  className="m-0 h-3.5 w-3.5"
-                  style={{ accentColor: "var(--accent)" }}
-                />
-                Explain <span className="text-[11px]" style={{ color: "var(--muted)" }}>⌘E</span>
-              </label>
             </div>
           </>
         )}

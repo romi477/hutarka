@@ -339,7 +339,9 @@ pub fn copy_result(app: AppHandle) -> Result<(), String> {
         .unwrap_or_default();
     app.clipboard()
         .write_text(result)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    popup::hide(&app);
+    Ok(())
 }
 
 #[tauri::command]
