@@ -2,6 +2,11 @@
 
 #[allow(dead_code)] // wired up in task 7
 mod journal;
+mod keys;
+#[allow(dead_code)] // wired up in task 7
+mod paste;
+#[allow(dead_code)] // wired up in task 7
+mod selection;
 #[allow(dead_code)] // wired up in tasks 7-8
 mod settings;
 #[allow(dead_code, unused_imports)] // wired up in the popup flow (step 02, task 7)
