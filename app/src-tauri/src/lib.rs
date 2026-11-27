@@ -1,5 +1,7 @@
 //! Hutarka: menu bar app with the selection translator.
 
+#[allow(dead_code)] // wired up in task 7
+mod journal;
 #[allow(dead_code)] // wired up in tasks 7-8
 mod settings;
 #[allow(dead_code, unused_imports)] // wired up in the popup flow (step 02, task 7)
