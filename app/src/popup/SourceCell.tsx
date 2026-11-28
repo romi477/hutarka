@@ -12,6 +12,8 @@ interface Props {
   onToggle: () => void;
   onChange: (text: string) => void;
   onTranslate: () => void;
+  /** Empties the original and the answer. */
+  onClear: () => void;
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -35,9 +37,18 @@ function Chevron({ open }: { open: boolean }) {
 
 /**
  * The text being translated. Collapsed: one dimmed line. Open: an editable
- * field; ⌘↵ or Translate sends what is in it.
+ * field; ⌘↵ or Translate sends what is in it, Clear empties it and the answer.
  */
-export function SourceCell({ text, open, focus, error, onToggle, onChange, onTranslate }: Props) {
+export function SourceCell({
+  text,
+  open,
+  focus,
+  error,
+  onToggle,
+  onChange,
+  onTranslate,
+  onClear,
+}: Props) {
   const field = useRef<HTMLTextAreaElement>(null);
 
   // The field grows with its text, up to a limit, then scrolls.
@@ -83,18 +94,30 @@ export function SourceCell({ text, open, focus, error, onToggle, onChange, onTra
             style={{ background: "var(--field)", borderColor: "var(--border)" }}
           />
           <div className="flex items-center gap-2">
-            <span className="text-[11px]" style={{ color: error ? "var(--warn)" : "var(--muted)" }}>
-              {error || "⌘↵ to translate"}
-            </span>
-            <span className="flex-1" />
             <button
               type="button"
               disabled={!text.trim()}
               onClick={onTranslate}
-              className="flex h-6 items-center rounded-md px-2.5 text-[12px] font-medium disabled:opacity-50"
+              title="Translate (⌘↵)"
+              className="flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[12px] font-medium disabled:opacity-50"
               style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
             >
               Translate
+              <span className="text-[11px] font-normal opacity-75">⌘↵</span>
+            </button>
+            {error && (
+              <span className="min-w-0 truncate text-[11px]" style={{ color: "var(--warn)" }}>
+                {error}
+              </span>
+            )}
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={onClear}
+              className="flex h-6 shrink-0 items-center rounded-md px-2.5 text-[12px] hover:bg-[var(--chip)] disabled:opacity-50"
+              style={{ color: "var(--muted)" }}
+            >
+              Clear
             </button>
           </div>
         </div>

@@ -329,6 +329,11 @@ export function Popup() {
                 setDraft(t);
               }}
               onTranslate={() => run(snap.to, snap.explain)}
+              onClear={() => {
+                setDraft("");
+                setInputError("");
+                popup.clear();
+              }}
             />
             {hasAnswer && (
               <div

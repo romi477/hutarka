@@ -371,6 +371,40 @@ pub fn rerun(app: AppHandle, to: Lang, explain: bool) {
     start(&app, snap.text, to, kind, snap.from_selection);
 }
 
+/// The popup emptied by Clear: lookup `id` with no text and no answer,
+/// keeping the chosen language and Explain. Typed text from here on, so
+/// Replace has nothing to paste over.
+fn cleared(snap: &Snapshot, id: u64) -> Snapshot {
+    Snapshot {
+        id,
+        status: Status::Idle,
+        text: String::new(),
+        to: snap.to,
+        targets: snap.targets.clone(),
+        kind: Kind::Text,
+        explain: snap.explain,
+        result: String::new(),
+        model: String::new(),
+        ms: 0,
+        error_kind: None,
+        error: String::new(),
+        from_selection: false,
+    }
+}
+
+/// Clear in the popup: stops a running lookup and empties the original and
+/// the answer.
+#[tauri::command]
+pub fn clear_popup(app: AppHandle) {
+    let state = app.state::<AppState>();
+    let Some(snap) = state.snapshot() else {
+        return;
+    };
+    state.abort_task();
+    let id = state.sessions.begin();
+    state.reset(&app, cleared(&snap, id));
+}
+
 /// A language or Explain picked in a popup with no text yet.
 #[tauri::command]
 pub fn choose_target(app: AppHandle, to: Lang, explain: bool) {
@@ -529,6 +563,24 @@ mod tests {
         let snap = state.choose(Lang::Pl, true).expect("snapshot");
         assert_eq!((snap.to, snap.explain), (Lang::Pl, true));
         assert_eq!(state.snapshot().expect("snapshot").to, Lang::Pl);
+    }
+
+    #[test]
+    fn clearing_keeps_language_and_explain_only() {
+        let state = AppState::new(crate::settings::defaults().clone());
+        let mut snap = snapshot_for(&state, 3);
+        snap.text = "привет".into();
+        snap.result = "hello".into();
+        snap.status = Status::Done;
+        snap.to = Lang::De;
+        snap.explain = true;
+        snap.from_selection = true;
+        let empty = cleared(&snap, 4);
+        assert_eq!((empty.id, empty.status), (4, Status::Idle));
+        assert_eq!((empty.to, empty.explain), (Lang::De, true));
+        assert_eq!(empty.targets, snap.targets);
+        assert!(empty.text.is_empty() && empty.result.is_empty());
+        assert!(!empty.from_selection);
     }
 
     #[test]

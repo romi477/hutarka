@@ -42,7 +42,7 @@ The app has no Dock icon. It lives in the menu bar.
 
 Select text, press **⌃⌥T** (or menu bar › Translate).
 
-**Typing instead of selecting.** Press the hotkey or menu bar › Translate with nothing selected: the popup opens with an empty field, already open for typing. Type or paste, then ⌘↵ or Translate.
+**Typing instead of selecting.** Press the hotkey or menu bar › Translate with nothing selected: the popup opens with an empty field, already open for typing. Type or paste, then ⌘↵ or Translate. **Clear** (right of Translate) empties the field and the answer and stops a running translation; the chosen language and Explain stay.
 
 **The original** sits above the answer, collapsed to one line. Click it to open it, edit the text or write a new one, and translate again with ⌘↵ into the language shown in the header.
 

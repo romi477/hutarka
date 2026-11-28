@@ -46,6 +46,7 @@ export const popup = {
   translate: (text: string, to: Lang, explain: boolean, fromSelection: boolean) =>
     invoke("translate_text", { text, to, explain, fromSelection }),
   copy: () => invoke("copy_result"),
+  clear: () => invoke("clear_popup"),
   copyText: (text: string) => invoke("copy_text", { text }),
   clipboardText: () => invoke<string>("clipboard_text"),
   replace: () => invoke("replace_result"),
