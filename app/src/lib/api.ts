@@ -79,6 +79,8 @@ export interface Target {
 
 export interface SettingsView {
   has_api_key: boolean;
+  /** Last six characters of the saved key. */
+  api_key_end: string | null;
   hotkey: string;
   explain: boolean;
   targets: Target[];

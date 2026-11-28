@@ -31,7 +31,11 @@ export function ApiKeySection({ view, onChange }: { view: SettingsView; onChange
             id="api-key"
             type="password"
             autoComplete="off"
-            placeholder={view.has_api_key ? "Key saved — paste a new one to replace it" : "sk-ant-…"}
+            placeholder={
+              view.has_api_key
+                ? `Saved key …${view.api_key_end ?? ""} — paste a new one to replace it`
+                : "sk-ant-…"
+            }
             value={key}
             onChange={(e) => setKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && save()}
@@ -62,7 +66,20 @@ export function ApiKeySection({ view, onChange }: { view: SettingsView; onChange
           </span>
         )}
         <span className="text-[12px]" style={{ color: "var(--muted)" }}>
-          {view.has_api_key ? "Key saved. " : "No key yet. "}
+          {view.has_api_key ? (
+            <>
+              Key saved
+              {view.api_key_end && (
+                <>
+                  {" "}
+                  (ends in <code className="selectable">…{view.api_key_end}</code>)
+                </>
+              )}
+              .{" "}
+            </>
+          ) : (
+            "No key yet. "
+          )}
           Stored in Hutarka's settings in the app data folder, not in ~/Hutarka. The command-line
           tool reads HUTARKA_API_KEY instead.
         </span>

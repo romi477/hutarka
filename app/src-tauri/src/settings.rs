@@ -283,6 +283,9 @@ impl Settings {
 #[derive(Debug, Clone, Serialize)]
 pub struct SettingsView {
     pub has_api_key: bool,
+    /// The key's last six characters, to tell which key is saved; None for
+    /// no key or a key too short to show part of it safely.
+    pub api_key_end: Option<String>,
     pub hotkey: String,
     pub explain: bool,
     pub targets: Vec<Target>,
@@ -291,10 +294,17 @@ pub struct SettingsView {
     pub languages: Vec<Lang>,
 }
 
+/// Last six characters of a key of at least 20 (real keys are ~100).
+fn key_end(key: &str) -> Option<String> {
+    let chars: Vec<char> = key.trim().chars().collect();
+    (chars.len() >= 20).then(|| chars[chars.len() - 6..].iter().collect())
+}
+
 impl From<&Settings> for SettingsView {
     fn from(s: &Settings) -> Self {
         SettingsView {
             has_api_key: !s.api_key.trim().is_empty(),
+            api_key_end: key_end(&s.api_key),
             hotkey: s.hotkey.clone(),
             explain: s.explain,
             targets: s.targets.clone(),
@@ -766,6 +776,20 @@ mod tests {
         assert!(!json.contains("sk-secret"));
         assert!(!json.contains("\"api_key\""));
         assert!(!SettingsView::from(defaults()).has_api_key);
+    }
+
+    #[test]
+    fn view_shows_only_the_last_six_characters_of_the_key() {
+        let mut s = defaults().clone();
+        s.api_key = "sk-ant-api03-secretvalue-AbC123".into();
+        let view = SettingsView::from(&s);
+        assert_eq!(view.api_key_end.as_deref(), Some("AbC123"));
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(!json.contains("secretvalue"));
+        // A short key would be mostly revealed: no hint.
+        s.api_key = "short-key".into();
+        assert_eq!(SettingsView::from(&s).api_key_end, None);
+        assert_eq!(SettingsView::from(defaults()).api_key_end, None);
     }
 
     #[test]

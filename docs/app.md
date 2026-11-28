@@ -35,7 +35,7 @@ The app has no Dock icon. It lives in the menu bar.
 
 ## First run
 
-1. **API key.** Menu bar icon › Settings… › General: paste the Anthropic key and press Save. It is stored in the app's settings (`~/Library/Application Support/dev.hutarka.app/settings.json`, readable only by you), never in `~/Hutarka`. If that file is ever damaged, Hutarka starts with defaults and keeps the damaged copy next to it as `settings.json.broken-<date>`.
+1. **API key.** Menu bar icon › Settings… › General: paste the Anthropic key and press Save. Settings then shows only its last six characters, to tell which key is saved. It is stored in the app's settings (`~/Library/Application Support/dev.hutarka.app/settings.json`, readable only by you), never in `~/Hutarka`. If that file is ever damaged, Hutarka starts with defaults and keeps the damaged copy next to it as `settings.json.broken-<date>`.
 2. **Accessibility.** The first lookup asks for it: System Settings › Privacy & Security › Accessibility, turn Hutarka on, then press the hotkey again. It is needed to read the selection and to paste.
 
 ## Translating a selection
