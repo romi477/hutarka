@@ -5,16 +5,18 @@ import { ApiKeySection } from "./ApiKeySection";
 export function GeneralPane({ view, onChange }: { view: SettingsView; onChange: () => void }) {
   const [hotkey, setHotkey] = useState(view.hotkey);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => setHotkey(view.hotkey), [view.hotkey]);
 
+  // Like the API key's Save: only when there is something to save. The same
+  // hotkey can be saved again while it is not active, to register it.
+  const canSave = hotkey.trim() !== "" && (hotkey.trim() !== view.hotkey || !view.hotkey_active);
+
   const saveHotkey = async () => {
+    if (!canSave) return;
     setError("");
-    setSaved(false);
     try {
       await settings.setHotkey(hotkey);
-      setSaved(true);
       onChange();
     } catch (e) {
       setError(String(e));
@@ -32,7 +34,10 @@ export function GeneralPane({ view, onChange }: { view: SettingsView; onChange: 
           <input
             id="hotkey"
             value={hotkey}
-            onChange={(e) => setHotkey(e.target.value)}
+            onChange={(e) => {
+              setError("");
+              setHotkey(e.target.value);
+            }}
             onKeyDown={(e) => e.key === "Enter" && saveHotkey()}
             className="field h-7 w-56 rounded-md px-2"
             style={{ userSelect: "text" }}
@@ -40,13 +45,22 @@ export function GeneralPane({ view, onChange }: { view: SettingsView; onChange: 
           <button
             type="button"
             onClick={saveHotkey}
+            disabled={!canSave}
             className="btn-primary h-7 rounded-md px-3 text-[12px]"
           >
             Save
           </button>
-          {saved && <span style={{ color: "var(--muted)" }}>Saved</span>}
         </div>
-        {error && <span style={{ color: "var(--warn)" }}>{error}</span>}
+        {error ? (
+          <span style={{ color: "var(--warn)" }}>{error}</span>
+        ) : (
+          !view.hotkey_active && (
+            <span style={{ color: "var(--warn)" }}>
+              {view.hotkey} is not active: another app may be using it. Free it and press Save, or
+              choose another.
+            </span>
+          )
+        )}
         <span className="text-[12px]" style={{ color: "var(--muted)" }}>
           A key combination such as Ctrl+Alt+T, Cmd+Shift+D or Alt+Space.
         </span>

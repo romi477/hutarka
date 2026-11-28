@@ -82,6 +82,8 @@ export interface SettingsView {
   /** Last six characters of the saved key. */
   api_key_end: string | null;
   hotkey: string;
+  /** False when the hotkey could not be registered (taken by another app). */
+  hotkey_active: boolean;
   explain: boolean;
   targets: Target[];
   prompts: {

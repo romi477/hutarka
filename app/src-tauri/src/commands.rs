@@ -11,7 +11,9 @@ use crate::translator::Lang;
 
 #[tauri::command]
 pub fn get_settings(app: AppHandle) -> SettingsView {
-    SettingsView::from(&app.state::<AppState>().settings())
+    let mut view = SettingsView::from(&app.state::<AppState>().settings());
+    view.hotkey_active = app.global_shortcut().is_registered(view.hotkey.as_str());
+    view
 }
 
 #[tauri::command]

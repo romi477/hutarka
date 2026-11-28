@@ -287,6 +287,9 @@ pub struct SettingsView {
     /// no key or a key too short to show part of it safely.
     pub api_key_end: Option<String>,
     pub hotkey: String,
+    /// The hotkey is registered (false when another app had it at startup).
+    /// Filled in by the command, which can ask the shortcut plugin.
+    pub hotkey_active: bool,
     pub explain: bool,
     pub targets: Vec<Target>,
     pub prompts: Prompts,
@@ -306,6 +309,7 @@ impl From<&Settings> for SettingsView {
             has_api_key: !s.api_key.trim().is_empty(),
             api_key_end: key_end(&s.api_key),
             hotkey: s.hotkey.clone(),
+            hotkey_active: true,
             explain: s.explain,
             targets: s.targets.clone(),
             prompts: s.prompts.clone(),
