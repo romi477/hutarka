@@ -339,16 +339,35 @@ pub fn start(app: &AppHandle, text: String, to: Lang, kind: Kind, from_selection
     }
 }
 
-pub(crate) fn save_settings(app: &AppHandle, change: impl FnOnce(&mut Settings)) {
+/// Applies `change` and writes the settings. Saved first: on a failed save
+/// the settings stay as they were and the error comes back.
+pub(crate) fn save_settings(
+    app: &AppHandle,
+    change: impl FnOnce(&mut Settings) -> Result<(), String>,
+) -> Result<(), String> {
     let state = app.state::<AppState>();
-    let Ok(mut settings) = state.settings.lock() else {
-        return;
-    };
-    change(&mut settings);
-    match settings::save(app, &settings) {
-        Ok(()) => log::info!("settings saved"),
-        Err(e) => log::error!("cannot save settings: {e}"),
+    let mut settings = state
+        .settings
+        .lock()
+        .map_err(|_| "settings lock poisoned".to_string())?;
+    let mut next = settings.clone();
+    change(&mut next)?;
+    if let Err(e) = settings::save(app, &next) {
+        log::error!("{e}");
+        return Err(e);
     }
+    *settings = next;
+    log::info!("settings saved");
+    Ok(())
+}
+
+/// The popup's Explain switch: remembered for the next lookup when it can
+/// be saved; the lookup itself runs either way.
+fn remember_explain(app: &AppHandle, explain: bool) {
+    let _ = save_settings(app, |s| {
+        s.explain = explain;
+        Ok(())
+    });
 }
 
 #[tauri::command]
@@ -360,7 +379,7 @@ pub fn popup_snapshot(state: tauri::State<'_, AppState>) -> Option<Snapshot> {
 /// language applies to this lookup only; the next starts with the default.
 #[tauri::command]
 pub fn rerun(app: AppHandle, to: Lang, explain: bool) {
-    save_settings(&app, |s| s.explain = explain);
+    remember_explain(&app, explain);
     let Some(snap) = app.state::<AppState>().snapshot() else {
         return;
     };
@@ -408,7 +427,7 @@ pub fn clear_popup(app: AppHandle) {
 /// A language or Explain picked in a popup with no text yet.
 #[tauri::command]
 pub fn choose_target(app: AppHandle, to: Lang, explain: bool) {
-    save_settings(&app, |s| s.explain = explain);
+    remember_explain(&app, explain);
     if let Some(snap) = app.state::<AppState>().choose(to, explain) {
         let _ = app.emit_to(popup::LABEL, "popup:snapshot", snap);
     }
@@ -434,7 +453,7 @@ pub fn translate_text(
         Err(TextError::Blank) => return Ok(()),
         Err(e) => return Err(e.to_string()),
     };
-    save_settings(&app, |s| s.explain = explain);
+    remember_explain(&app, explain);
     let kind = kind_for(&text, explain);
     start(&app, text, to, kind, from_selection);
     Ok(())

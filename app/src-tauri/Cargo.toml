@@ -17,7 +17,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 hutarka-llm = { path = "../../crates/hutarka-llm" }
 tauri = { version = "2.11.5", features = ["macos-private-api", "tray-icon", "image-png"] }
-tauri-plugin-store = "2.4.1"
 tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-global-shortcut = "2.3.1"
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }

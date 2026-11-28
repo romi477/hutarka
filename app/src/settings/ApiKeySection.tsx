@@ -4,18 +4,22 @@ import { settings, type SettingsView } from "@/lib/api";
 /** The Anthropic API key: saved, replaced or removed; never shown. */
 export function ApiKeySection({ view, onChange }: { view: SettingsView; onChange: () => void }) {
   const [key, setKey] = useState("");
+  const [error, setError] = useState("");
 
-  const save = async () => {
-    if (!key.trim()) return;
-    await settings.setApiKey(key);
-    setKey("");
+  /** Shown as done only after the settings file is written. */
+  const store = async (next: string) => {
+    setError("");
+    try {
+      await settings.setApiKey(next);
+      setKey("");
+    } catch (e) {
+      setError(String(e));
+    }
     onChange();
   };
 
-  const remove = async () => {
-    await settings.setApiKey("");
-    onChange();
-  };
+  const save = () => key.trim() && store(key);
+  const remove = () => store("");
 
   return (
     <section className="flex flex-col gap-1.5">
@@ -52,6 +56,11 @@ export function ApiKeySection({ view, onChange }: { view: SettingsView; onChange
             </button>
           )}
         </div>
+        {error && (
+          <span className="text-[12px]" style={{ color: "var(--warn)" }}>
+            {error}
+          </span>
+        )}
         <span className="text-[12px]" style={{ color: "var(--muted)" }}>
           {view.has_api_key ? "Key saved. " : "No key yet. "}
           Stored in Hutarka's settings in the app data folder, not in ~/Hutarka. The command-line

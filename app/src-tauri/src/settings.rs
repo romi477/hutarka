@@ -1,5 +1,6 @@
 //! App settings: API key, hotkey, translation targets and prompts. Stored
-//! with tauri-plugin-store in the app data directory (never in `~/Hutarka`).
+//! in `settings.json` in the app data directory (never in `~/Hutarka`),
+//! written by Hutarka itself (see `settings_file`), never sent to a webview.
 //! Starting values come from `resources/default-settings.json`, not code.
 
 use std::sync::OnceLock;
@@ -8,9 +9,9 @@ use hutarka_llm::{Effort, Request};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
-use tauri::AppHandle;
-use tauri_plugin_store::StoreExt;
+use tauri::{AppHandle, Manager};
 
+use crate::settings_file::{self, Loaded};
 use crate::translator::{Kind, Lang, render};
 
 const DEFAULTS_JSON: &str = include_str!("../resources/default-settings.json");
@@ -325,15 +326,42 @@ pub fn build_request(settings: &Settings, text: &str, to: Lang, kind: Kind) -> R
     req
 }
 
-/// Stored settings, or the defaults when nothing is stored yet or the store
-/// cannot be read.
+fn settings_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join(STORE_FILE))
+        .map_err(|e| format!("no app data folder: {e}"))
+}
+
+/// Stored settings, or the defaults when nothing is stored yet. A file that
+/// cannot be read or parsed is moved aside (`settings.json.broken-<time>`) so
+/// the key and prompts in it can still be recovered by hand, then defaults.
 pub fn load(app: &AppHandle) -> Settings {
-    let stored = app
-        .store(STORE_FILE)
-        .map_err(|e| log::error!("cannot open settings store: {e}"))
-        .ok()
-        .and_then(|store| store.get(STORE_KEY));
-    let Some(stored) = stored else {
+    let path = match settings_path(app) {
+        Ok(path) => path,
+        Err(e) => {
+            log::error!("{e}");
+            return Settings::default();
+        }
+    };
+    let stored = match settings_file::read(&path) {
+        Loaded::Missing => return Settings::default(),
+        Loaded::Unreadable(e) => {
+            let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+            match settings_file::set_aside(&path, &stamp) {
+                Ok(kept) => log::error!(
+                    "cannot read settings ({e}); kept as {}, defaults used",
+                    kept.display()
+                ),
+                Err(move_err) => log::error!(
+                    "cannot read settings ({e}) nor move the file aside ({move_err}); defaults used"
+                ),
+            }
+            return Settings::default();
+        }
+        Loaded::Stored(value) => value,
+    };
+    let Some(stored) = stored.get(STORE_KEY).cloned() else {
         return Settings::default();
     };
     let (settings, bad) = from_stored(stored);
@@ -449,11 +477,11 @@ fn stored_target(card: &Value) -> Option<Target> {
     })
 }
 
+/// Writes the settings; done only when the file is safely replaced.
 pub fn save(app: &AppHandle, settings: &Settings) -> Result<(), String> {
-    let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
-    let value = serde_json::to_value(settings).map_err(|e| e.to_string())?;
-    store.set(STORE_KEY, value);
-    store.save().map_err(|e| e.to_string())
+    let path = settings_path(app)?;
+    let value = serde_json::json!({ STORE_KEY: settings });
+    settings_file::write(&path, &value).map_err(|e| format!("cannot save settings: {e}"))
 }
 
 #[cfg(test)]

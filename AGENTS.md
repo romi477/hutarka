@@ -206,7 +206,7 @@ A meeting's audio stays next to its transcripts (one folder = one meeting, easy 
 - **Live MCP reads the journal directly**: `get_lines_since(meeting, cursor)` returns lines after a cursor (line number or byte offset) and the new cursor. Same code path for live and finished meetings.
 - **Search**: scan the files (personal scale, ripgrep-style); add an index only if it gets slow.
 - **Dictation during a meeting**: the mic track picks it up; Hutarka knows the hotkey intervals, so those lines get `kind: dictation` in the meeting journal.
-- **Settings**: Tauri store (JSON file) in the app data directory, as in Handy. Handy's SQLite history (`managers/history.rs`, `rusqlite`) is replaced by the JSONL journal.
+- **Settings**: one JSON file (`settings.json`) in the app data directory, written by Hutarka itself (atomic replace, mode 600; a broken file is moved aside, not overwritten). Not tauri-plugin-store: it sends the whole object, key included, to the webviews on every change. Handy's SQLite history (`managers/history.rs`, `rusqlite`) is replaced by the JSONL journal.
 
 ## Signing and macOS permissions
 

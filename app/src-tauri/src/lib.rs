@@ -11,6 +11,7 @@ mod popup;
 mod selection;
 mod session;
 mod settings;
+mod settings_file;
 mod translator;
 mod tray;
 mod windows;
@@ -48,7 +49,6 @@ pub fn run() {
                 ])
                 .build(),
         )
-        .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_nspanel::init())

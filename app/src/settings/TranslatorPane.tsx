@@ -87,16 +87,23 @@ export function TranslatorPane({
 
   const save = async (next: PromptSpec) => {
     setSpec(next);
-    await settings.setPrompt(selected, next);
-    setStatus("Saved");
+    try {
+      await settings.setPrompt(selected, next);
+      setStatus("Saved");
+    } catch (e) {
+      setStatus(String(e));
+    }
     // The parent re-reads the settings, so switching prompts shows saved text.
     onChange();
   };
 
   const reset = async () => {
-    const def = await settings.resetPrompt(selected);
-    setSpec(def);
-    setStatus("Default restored");
+    try {
+      setSpec(await settings.resetPrompt(selected));
+      setStatus("Default restored");
+    } catch (e) {
+      setStatus(String(e));
+    }
     onChange();
   };
 
