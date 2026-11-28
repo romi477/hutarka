@@ -58,6 +58,8 @@ export function Popup() {
   const [draft, setDraft] = useState("");
   const [open, setOpen] = useState(false);
   const [inputError, setInputError] = useState("");
+  /** Why Replace did not paste (the source app or window changed). */
+  const [notice, setNotice] = useState("");
   /** The next lookup comes from our own Translate: keep the source cell as it is. */
   const ownRun = useRef(false);
   const wrapper = useRef<HTMLDivElement>(null);
@@ -70,6 +72,8 @@ export function Popup() {
     if (!snap) return;
     setDraft(snap.text);
     setInputError("");
+    setNotice("");
+    setMenu(false);
     if (ownRun.current) ownRun.current = false;
     else setOpen(!snap.from_selection);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,10 +91,8 @@ export function Popup() {
 
   useEffect(() => {
     popup.snapshot().then((s) => s && setSnap(s));
-    const off = popup.onSnapshot((s) => {
-      setSnap(s);
-      setMenu(false);
-    });
+    // The menu stays open while the answer streams; a new lookup closes it.
+    const off = popup.onSnapshot(setSnap);
     return () => {
       off.then((f) => f());
     };
@@ -112,6 +114,11 @@ export function Popup() {
     observer.observe(el);
     return () => observer.disconnect();
   }, [menu, hasSnap, width]);
+
+  const replace = useCallback(() => {
+    setNotice("");
+    popup.replace().catch((e) => setNotice(String(e)));
+  }, []);
 
   /**
    * Runs the lookup again into `to`: the edited source text if it changed,
@@ -171,7 +178,7 @@ export function Popup() {
         snap.from_selection
       ) {
         e.preventDefault();
-        popup.replace();
+        replace();
       } else if (e.metaKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         popup.pin(!pinned);
@@ -186,7 +193,7 @@ export function Popup() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [snap, menu, run, draft, pinned]);
+  }, [snap, menu, run, draft, pinned, replace]);
 
   if (!snap) return null;
 
@@ -404,11 +411,16 @@ export function Popup() {
                 <button
                   type="button"
                   disabled={!done}
-                  onClick={() => popup.replace()}
+                  onClick={replace}
                   className="btn-primary flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px]"
                 >
                   Replace <span className="text-[11px] font-normal opacity-70">↵</span>
                 </button>
+              )}
+              {notice && (
+                <span className="min-w-0 truncate text-[11px]" style={{ color: "var(--warn)" }} title={notice}>
+                  {notice}
+                </span>
               )}
               <span className="flex-1" />
               {/* Same as the header's ×, within reach after scrolling a long answer. */}

@@ -11,7 +11,7 @@ use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::journal::{LookupRecord, append_lookup, journal_root};
-use crate::selection::{SelectionError, read_selection};
+use crate::selection::{Origin, SelectionError, current_origin, read_selection};
 use crate::session::Sessions;
 use crate::settings::{self, Settings, build_request};
 use crate::translator::{Kind, Lang, TextError, kind_for, prepare_text};
@@ -64,6 +64,8 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     snapshot: Mutex<Snapshot>,
     task: Mutex<Option<JoinHandle<()>>>,
+    /// App and window of the last selection read: Replace pastes only there.
+    origin: Mutex<Option<Origin>>,
     /// One HTTP client per API key, reused so a lookup skips the TCP and TLS
     /// handshake with the API.
     client: Mutex<Option<(String, Client)>>,
@@ -77,6 +79,7 @@ impl AppState {
             settings: Mutex::new(settings),
             snapshot: Mutex::new(snapshot),
             task: Mutex::new(None),
+            origin: Mutex::new(None),
             client: Mutex::new(None),
         }
     }
@@ -181,6 +184,9 @@ pub fn trigger(app: &AppHandle) {
             Err(SelectionError::Nothing) => compose(&app),
             Ok(raw) => match prepare_text(&raw) {
                 Ok(text) => {
+                    if let Ok(mut origin) = state.origin.lock() {
+                        *origin = current_origin();
+                    }
                     let kind = kind_for(&text, settings.explain);
                     popup::show_near_cursor(&app);
                     start(&app, text, settings.default_target(), kind, true);
@@ -495,15 +501,33 @@ pub fn clipboard_text(app: AppHandle) -> String {
     app.clipboard().read_text().unwrap_or_default()
 }
 
+/// Pastes the answer over the selection, only while the app and window the
+/// text came from are still in front (a pinned popup outlives a switch to
+/// another document); otherwise the answer stays for Copy.
 #[tauri::command]
 pub fn replace_result(app: AppHandle) -> Result<(), String> {
-    let Some(result) = app
-        .state::<AppState>()
-        .snapshot()
-        .and_then(|s| finished_result(&s))
-    else {
+    let state = app.state::<AppState>();
+    let Some(snap) = state.snapshot() else {
         return Ok(());
     };
+    let Some(result) = finished_result(&snap) else {
+        return Ok(());
+    };
+    if !snap.from_selection {
+        return Ok(());
+    }
+    let same = state
+        .origin
+        .lock()
+        .ok()
+        .and_then(|origin| Some(origin.as_ref()?.same_place(&current_origin()?)))
+        .unwrap_or(false);
+    if !same {
+        log::info!("replace refused: the selection's app or window is no longer in front");
+        return Err(
+            "The text came from another app or window. Copy the translation instead.".into(),
+        );
+    }
     popup::hide(&app);
     // Let the source app's window take the keyboard back before ⌘V.
     thread::sleep(Duration::from_millis(80));

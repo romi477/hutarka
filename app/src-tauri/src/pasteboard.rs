@@ -22,6 +22,25 @@ pub fn restore(saved: &Saved) {
     restore_to(&NSPasteboard::generalPasteboard(), saved);
 }
 
+/// Goes up on every change of the general pasteboard, by anyone.
+pub fn change_count() -> isize {
+    NSPasteboard::generalPasteboard().changeCount()
+}
+
+/// Restores `saved` unless the pasteboard changed since `count` (someone
+/// copied something new: that is kept). Returns whether it restored.
+pub fn restore_if_unchanged(saved: &Saved, count: isize) -> bool {
+    restore_if_unchanged_to(&NSPasteboard::generalPasteboard(), saved, count)
+}
+
+fn restore_if_unchanged_to(board: &NSPasteboard, saved: &Saved, count: isize) -> bool {
+    if board.changeCount() != count {
+        return false;
+    }
+    restore_to(board, saved);
+    true
+}
+
 fn save_from(board: &NSPasteboard) -> Saved {
     let Some(items) = board.pasteboardItems() else {
         return Saved::default();
@@ -85,6 +104,32 @@ mod tests {
         let mut expected = items;
         expected[0].sort();
         assert_eq!(again, expected);
+    }
+
+    #[test]
+    fn a_newer_copy_is_not_overwritten_by_the_restore() {
+        let board = NSPasteboard::pasteboardWithUniqueName();
+        let ours = Saved(vec![vec![(
+            "public.utf8-plain-text".into(),
+            b"ours".to_vec(),
+        )]]);
+        let user = Saved(vec![vec![(
+            "public.utf8-plain-text".into(),
+            b"user".to_vec(),
+        )]]);
+        restore_to(&board, &ours);
+        let count = board.changeCount();
+        assert!(restore_if_unchanged_to(&board, &user, count));
+        let count = board.changeCount();
+        restore_to(
+            &board,
+            &Saved(vec![vec![(
+                "public.utf8-plain-text".into(),
+                b"new".to_vec(),
+            )]]),
+        );
+        assert!(!restore_if_unchanged_to(&board, &user, count));
+        assert_eq!(save_from(&board).0[0][0].1, b"new");
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! Replacing the selection in the frontmost app: clipboard + ⌘V, then the
-//! previous clipboard (all of it) comes back.
+//! previous clipboard (all of it) comes back, unless something new was
+//! copied in the meantime.
 
 use std::thread;
 use std::time::Duration;
@@ -18,19 +19,22 @@ pub fn replace_selection(app: &AppHandle, text: &str) -> Result<(), String> {
     let lock = ClipboardLock::acquire();
     // Everything on the clipboard (images, files, rich text), not just text.
     let saved = pasteboard::save();
-    let pasted = app
-        .clipboard()
-        .write_text(text)
-        .map_err(|e| e.to_string())
-        .and_then(|_| keys::command_v());
-    if let Err(e) = pasted {
+    if let Err(e) = app.clipboard().write_text(text) {
+        pasteboard::restore(&saved);
+        return Err(e.to_string());
+    }
+    // Pasting does not change the count; a copy by the user meanwhile does.
+    let ours = pasteboard::change_count();
+    if let Err(e) = keys::command_v() {
         pasteboard::restore(&saved);
         return Err(e);
     }
     thread::spawn(move || {
         let _lock = lock;
         thread::sleep(RESTORE_AFTER);
-        pasteboard::restore(&saved);
+        if !pasteboard::restore_if_unchanged(&saved, ours) {
+            log::info!("clipboard changed after Replace: the new content is kept");
+        }
     });
     Ok(())
 }

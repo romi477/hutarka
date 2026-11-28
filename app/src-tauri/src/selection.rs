@@ -5,6 +5,7 @@ use std::ptr::NonNull;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use objc2_app_kit::NSWorkspace;
 use objc2_application_services::{AXError, AXIsProcessTrusted, AXUIElement};
 use objc2_core_foundation::{CFRetained, CFString, CFType};
 use tauri::AppHandle;
@@ -37,6 +38,44 @@ pub fn open_accessibility_settings() {
     let _ = std::process::Command::new("open")
         .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         .status();
+}
+
+/// Where a selection was read: the frontmost app and its focused window.
+/// Replace pastes only while both are still in front.
+pub struct Origin {
+    pid: i32,
+    window: Option<CFRetained<AXUIElement>>,
+}
+
+// SAFETY: an AXUIElement is an immutable reference to a UI element, usable
+// from any thread; Origin only compares it.
+unsafe impl Send for Origin {}
+
+impl Origin {
+    /// Same app, and the same window when both windows are known.
+    pub fn same_place(&self, now: &Origin) -> bool {
+        self.pid == now.pid
+            && match (&self.window, &now.window) {
+                (Some(then), Some(now)) => **then == **now,
+                _ => true,
+            }
+    }
+}
+
+/// The frontmost (active) app and its focused window. The popup is a
+/// non-activating panel, so it never counts as frontmost; None when Hutarka
+/// itself is in front (its own window cannot be pasted into).
+pub fn current_origin() -> Option<Origin> {
+    let app = NSWorkspace::sharedWorkspace().frontmostApplication()?;
+    let pid = app.processIdentifier();
+    if pid == std::process::id() as i32 {
+        return None;
+    }
+    // SAFETY: returns a new reference to the app's element.
+    let element = unsafe { AXUIElement::new_application(pid) };
+    let window =
+        attribute(&element, "AXFocusedWindow").and_then(|w| w.downcast::<AXUIElement>().ok());
+    Some(Origin { pid, window })
 }
 
 fn clipboard_changed(sentinel: &str, now: Option<&str>) -> bool {
@@ -108,6 +147,24 @@ fn copy_selection(app: &AppHandle) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn origin(pid: i32, window: Option<i32>) -> Origin {
+        // Application elements of made-up pids stand in for windows: equal
+        // exactly when built from the same pid.
+        Origin {
+            pid,
+            window: window.map(|w| unsafe { AXUIElement::new_application(w) }),
+        }
+    }
+
+    #[test]
+    fn replace_needs_the_same_app_and_window() {
+        assert!(origin(10, Some(1)).same_place(&origin(10, Some(1))));
+        assert!(!origin(10, Some(1)).same_place(&origin(11, Some(1))));
+        assert!(!origin(10, Some(1)).same_place(&origin(10, Some(2))));
+        // A window AX does not expose: the app decides.
+        assert!(origin(10, None).same_place(&origin(10, Some(2))));
+    }
 
     #[test]
     fn sentinel_unchanged_means_nothing() {
