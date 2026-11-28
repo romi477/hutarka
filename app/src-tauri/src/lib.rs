@@ -70,7 +70,9 @@ pub fn run() {
             commands::set_prompt,
             commands::reset_prompt,
             commands::set_api_key,
-            commands::set_english_target,
+            commands::add_target,
+            commands::remove_target,
+            commands::set_default_target,
             commands::set_hotkey,
         ])
         .setup(|app| {

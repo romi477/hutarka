@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
 import { settings, type SettingsView } from "@/lib/api";
 import { GeneralPane } from "./GeneralPane";
-import { LlmPane } from "./LlmPane";
+import { PlaceholderPane } from "./PlaceholderPane";
 import { TranslatorPane } from "./TranslatorPane";
 
 const SECTIONS = [
   { id: "general", label: "General" },
-  { id: "translator", label: "Translator" },
-  { id: "llm", label: "LLM" },
+  { id: "translator", label: "Translation" },
+  { id: "audio", label: "Audio capture" },
+  { id: "speech", label: "Speech" },
 ] as const;
 
 type Section = (typeof SECTIONS)[number]["id"];
 
 function sectionFrom(value: string): Section {
-  return SECTIONS.find((s) => s.id === value)?.id ?? "translator";
+  // Unknown ids (the old "llm" pane) open General, where the key lives now.
+  return SECTIONS.find((s) => s.id === value)?.id ?? "general";
 }
 
 export function Settings() {
@@ -61,8 +63,10 @@ export function Settings() {
         {view &&
           (section === "general" ? (
             <GeneralPane view={view} onChange={reload} />
-          ) : section === "llm" ? (
-            <LlmPane view={view} onChange={reload} />
+          ) : section === "audio" ? (
+            <PlaceholderPane title="Audio capture" />
+          ) : section === "speech" ? (
+            <PlaceholderPane title="Speech" />
           ) : (
             <TranslatorPane view={view} onChange={reload} />
           ))}

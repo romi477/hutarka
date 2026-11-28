@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 const SETTINGS: &str = "settings";
 
 /// Shows the Settings window, creating it on first use. `section` selects a
-/// pane ("translator", "llm", "general").
+/// pane ("general", "translator", "audio", "speech").
 pub fn open_settings(app: &AppHandle, section: Option<&str>) {
     if let Some(window) = app.get_webview_window(SETTINGS) {
         if let Some(section) = section {

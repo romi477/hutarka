@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { settings, type SettingsView } from "@/lib/api";
 
-export function LlmPane({ view, onChange }: { view: SettingsView; onChange: () => void }) {
+/** The Anthropic API key: saved, replaced or removed; never shown. */
+export function ApiKeySection({ view, onChange }: { view: SettingsView; onChange: () => void }) {
   const [key, setKey] = useState("");
 
   const save = async () => {
@@ -17,9 +18,7 @@ export function LlmPane({ view, onChange }: { view: SettingsView; onChange: () =
   };
 
   return (
-    <>
-      <h1 className="m-0 text-xl font-semibold">LLM</h1>
-      <section className="flex flex-col gap-1.5">
+    <section className="flex flex-col gap-1.5">
         <label htmlFor="api-key" className="font-medium">
           Anthropic API key
         </label>
@@ -60,7 +59,6 @@ export function LlmPane({ view, onChange }: { view: SettingsView; onChange: () =
           Stored in Hutarka's settings in the app data folder, not in ~/Hutarka. The command-line
           tool reads HUTARKA_API_KEY instead.
         </span>
-      </section>
-    </>
+    </section>
   );
 }

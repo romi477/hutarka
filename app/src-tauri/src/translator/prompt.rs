@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::Direction;
+use super::Lang;
 
 /// What the answer should be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,17 +61,21 @@ pub fn kind_for(text: &str, explain: bool) -> Kind {
     }
 }
 
-/// Fills `{from}` and `{to}` with the direction's language names.
-pub fn render(template: &str, dir: Direction) -> String {
+/// The source language is the model's to work out.
+pub const ORIGINAL_LANGUAGE: &str = "the original language";
+
+/// Fills `{to}` with the target's name; `{from}` (older edited prompts) with
+/// "the original language".
+pub fn render(template: &str, to: Lang) -> String {
     template
-        .replace("{from}", dir.from().name())
-        .replace("{to}", dir.to().name())
+        .replace("{from}", ORIGINAL_LANGUAGE)
+        .replace("{to}", to.name())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::translator::Direction;
+    use crate::translator::Lang;
 
     #[test]
     fn explain_wins() {
@@ -123,10 +127,10 @@ mod tests {
     }
 
     #[test]
-    fn render_fills_placeholders() {
+    fn render_fills_to_and_original_language() {
         assert_eq!(
-            render("{from} to {to}, {to}", Direction::EnPl),
-            "English to Polish, Polish"
+            render("{from} into {to}, {to}", Lang::De),
+            "the original language into German, German"
         );
     }
 

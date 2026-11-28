@@ -14,7 +14,7 @@ use crate::journal::{LookupRecord, append_lookup, journal_root};
 use crate::selection::{SelectionError, read_selection};
 use crate::session::Sessions;
 use crate::settings::{self, Settings, build_request};
-use crate::translator::{Direction, Kind, Lang, TextError, auto_direction, kind_for, prepare_text};
+use crate::translator::{Kind, Lang, TextError, kind_for, prepare_text};
 use crate::{paste, popup};
 
 /// Why a lookup produced no answer; the popup picks its message and button.
@@ -43,7 +43,10 @@ pub struct Snapshot {
     pub id: u64,
     pub status: Status,
     pub text: String,
-    pub direction: Direction,
+    /// The language this lookup translates into.
+    pub to: Lang,
+    /// Every target card, in Settings order: the popup's menu and ⌘1…⌘9.
+    pub targets: Vec<Lang>,
     pub kind: Kind,
     pub explain: bool,
     pub result: String,
@@ -68,20 +71,7 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(settings: Settings) -> Self {
-        let snapshot = Snapshot {
-            id: 0,
-            status: Status::Idle,
-            text: String::new(),
-            direction: Direction::EnRu,
-            kind: Kind::Text,
-            explain: settings.explain,
-            result: String::new(),
-            model: String::new(),
-            ms: 0,
-            error_kind: None,
-            error: String::new(),
-            from_selection: false,
-        };
+        let snapshot = fresh(0, &settings, settings.default_target(), Status::Idle);
         AppState {
             sessions: Sessions::default(),
             settings: Mutex::new(settings),
@@ -179,9 +169,9 @@ pub fn trigger(app: &AppHandle) {
             Err(SelectionError::Nothing) => compose(&app),
             Ok(raw) => match prepare_text(&raw) {
                 Ok(text) => {
-                    let (dir, kind) = plan(&text, None, settings.english_target, settings.explain);
+                    let kind = kind_for(&text, settings.explain);
                     popup::show_near_cursor(&app);
-                    start(&app, text, dir, kind, true);
+                    start(&app, text, settings.default_target(), kind, true);
                 }
                 Err(TextError::Blank) => compose(&app),
                 Err(e @ TextError::TooLong(_)) => {
@@ -193,15 +183,23 @@ pub fn trigger(app: &AppHandle) {
     });
 }
 
-/// Direction and kind of a lookup: the given direction, or detected.
-fn plan(
-    text: &str,
-    direction: Option<Direction>,
-    english_target: Lang,
-    explain: bool,
-) -> (Direction, Kind) {
-    let dir = direction.unwrap_or_else(|| auto_direction(text, english_target));
-    (dir, kind_for(text, explain))
+/// An empty snapshot of lookup `id` into `to`, with the current cards.
+fn fresh(id: u64, settings: &Settings, to: Lang, status: Status) -> Snapshot {
+    Snapshot {
+        id,
+        status,
+        text: String::new(),
+        to,
+        targets: settings.targets.iter().map(|t| t.lang).collect(),
+        kind: Kind::Text,
+        explain: settings.explain,
+        result: String::new(),
+        model: String::new(),
+        ms: 0,
+        error_kind: None,
+        error: String::new(),
+        from_selection: false,
+    }
 }
 
 /// Opens the popup with an empty source field to type into.
@@ -209,28 +207,11 @@ pub fn compose(app: &AppHandle) {
     let state = app.state::<AppState>();
     state.abort_task();
     let id = state.sessions.begin();
-    let explain = state.settings().explain;
-    let direction = state
-        .snapshot()
-        .map(|s| s.direction)
-        .unwrap_or(Direction::EnRu);
+    let settings = state.settings();
     popup::show_near_cursor(app);
     state.reset(
         app,
-        Snapshot {
-            id,
-            status: Status::Idle,
-            text: String::new(),
-            direction,
-            kind: Kind::Text,
-            explain,
-            result: String::new(),
-            model: String::new(),
-            ms: 0,
-            error_kind: None,
-            error: String::new(),
-            from_selection: false,
-        },
+        fresh(id, &settings, settings.default_target(), Status::Idle),
     );
 }
 
@@ -239,56 +220,39 @@ fn fail(app: &AppHandle, kind: ErrorKind, message: String) {
     let state = app.state::<AppState>();
     state.abort_task();
     let id = state.sessions.begin();
-    let explain = state.settings().explain;
-    let direction = state
+    let settings = state.settings();
+    let to = state
         .snapshot()
-        .map(|s| s.direction)
-        .unwrap_or(Direction::EnRu);
+        .map_or_else(|| settings.default_target(), |s| s.to);
     state.reset(
         app,
         Snapshot {
-            id,
-            status: Status::Error,
-            text: String::new(),
-            direction,
-            kind: Kind::Text,
-            explain,
-            result: String::new(),
-            model: String::new(),
-            ms: 0,
             error_kind: Some(kind),
             error: message,
-            from_selection: false,
+            ..fresh(id, &settings, to, Status::Error)
         },
     );
 }
 
 /// Starts (or restarts) a lookup of `text`; any running one is cancelled.
-pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind, from_selection: bool) {
+pub fn start(app: &AppHandle, text: String, to: Lang, kind: Kind, from_selection: bool) {
     let state = app.state::<AppState>();
     state.abort_task();
     let id = state.sessions.begin();
     let settings = state.settings();
-    let req = build_request(&settings, &text, dir, kind);
+    let req = build_request(&settings, &text, to, kind);
     state.reset(
         app,
         Snapshot {
-            id,
-            status: Status::Streaming,
             text: text.clone(),
-            direction: dir,
             kind,
-            explain: settings.explain,
-            result: String::new(),
             model: req.model.clone(),
-            ms: 0,
-            error_kind: None,
-            error: String::new(),
             from_selection,
+            ..fresh(id, &settings, to, Status::Streaming)
         },
     );
     log::info!(
-        "lookup {id}: {dir:?} {kind:?}, {} chars, model {}",
+        "lookup {id}: into {to:?} {kind:?}, {} chars, model {}",
         text.chars().count(),
         req.model
     );
@@ -336,7 +300,7 @@ pub fn start(app: &AppHandle, text: String, dir: Direction, kind: Kind, from_sel
                     ts: chrono::Local::now().to_rfc3339(),
                     kind: "lookup",
                     mode: kind,
-                    direction: dir,
+                    to,
                     text,
                     result,
                     model: req.model.clone(),
@@ -380,15 +344,11 @@ pub fn popup_snapshot(state: tauri::State<'_, AppState>) -> Option<Snapshot> {
     state.snapshot()
 }
 
-/// Same selection again with another direction or the Explain switch.
+/// Same text again into another language or with the Explain switch. The
+/// language applies to this lookup only; the next starts with the default.
 #[tauri::command]
-pub fn rerun(app: AppHandle, direction: Direction, explain: bool) {
-    save_settings(&app, |s| {
-        s.explain = explain;
-        if direction.from() == Lang::En {
-            s.english_target = direction.to();
-        }
-    });
+pub fn rerun(app: AppHandle, to: Lang, explain: bool) {
+    save_settings(&app, |s| s.explain = explain);
     let Some(snap) = app.state::<AppState>().snapshot() else {
         return;
     };
@@ -396,7 +356,7 @@ pub fn rerun(app: AppHandle, direction: Direction, explain: bool) {
         return;
     }
     let kind = kind_for(&snap.text, explain);
-    start(&app, snap.text, direction, kind, snap.from_selection);
+    start(&app, snap.text, to, kind, snap.from_selection);
 }
 
 /// The answer Copy and Replace may use: a finished, non-empty one.
@@ -404,13 +364,13 @@ fn finished_result(snap: &Snapshot) -> Option<String> {
     (snap.status == Status::Done && !snap.result.is_empty()).then(|| snap.result.clone())
 }
 
-/// Translates text typed (or edited) in the popup; `direction` None detects it.
+/// Translates text typed (or edited) in the popup into `to`.
 /// `from_selection`: the edited text still stands for a selection Replace can paste over.
 #[tauri::command]
 pub fn translate_text(
     app: AppHandle,
     text: String,
-    direction: Option<Direction>,
+    to: Lang,
     explain: bool,
     from_selection: bool,
 ) -> Result<(), String> {
@@ -419,17 +379,9 @@ pub fn translate_text(
         Err(TextError::Blank) => return Ok(()),
         Err(e) => return Err(e.to_string()),
     };
-    save_settings(&app, |s| {
-        s.explain = explain;
-        if let Some(d) = direction
-            && d.from() == Lang::En
-        {
-            s.english_target = d.to();
-        }
-    });
-    let settings = app.state::<AppState>().settings();
-    let (dir, kind) = plan(&text, direction, settings.english_target, explain);
-    start(&app, text, dir, kind, from_selection);
+    save_settings(&app, |s| s.explain = explain);
+    let kind = kind_for(&text, explain);
+    start(&app, text, to, kind, from_selection);
     Ok(())
 }
 
@@ -529,29 +481,13 @@ mod tests {
     }
 
     #[test]
-    fn typed_text_without_direction_detects_it() {
-        assert_eq!(
-            plan("привет", None, Lang::Ru, false),
-            (Direction::RuEn, Kind::Word)
-        );
-        assert_eq!(
-            plan("hello there", None, Lang::Pl, false),
-            (Direction::EnPl, Kind::Word)
-        );
-    }
-
-    #[test]
-    fn typed_text_keeps_a_chosen_direction() {
-        let text = "This is a longer sentence. It is text.";
-        assert_eq!(
-            plan(text, Some(Direction::EnPl), Lang::Ru, false),
-            (Direction::EnPl, Kind::Text)
-        );
-    }
-
-    #[test]
-    fn explain_wins_over_length() {
-        assert_eq!(plan("leverage", None, Lang::Ru, true).1, Kind::Explain);
+    fn snapshot_lists_targets_in_card_order() {
+        let mut settings = crate::settings::defaults().clone();
+        settings.add_target(Lang::De).expect("add");
+        let snap = fresh(7, &settings, Lang::Ru, Status::Idle);
+        assert_eq!(snap.targets, vec![Lang::En, Lang::Ru, Lang::Pl, Lang::De]);
+        assert_eq!(snap.to, Lang::Ru);
+        assert_eq!(snap.id, 7);
     }
 
     fn snapshot_for(state: &AppState, id: u64) -> Snapshot {

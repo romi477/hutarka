@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::lookup::{AppState, save_settings};
-use crate::settings::{PromptId, PromptSpec, SettingsView, default_prompt};
+use crate::settings::{PromptId, PromptSpec, Settings, SettingsView, default_prompt};
 use crate::translator::Lang;
 
 #[tauri::command]
@@ -16,14 +16,14 @@ pub fn get_settings(app: AppHandle) -> SettingsView {
 
 #[tauri::command]
 pub fn set_prompt(app: AppHandle, id: PromptId, spec: PromptSpec) {
-    save_settings(&app, |s| s.prompts.set(id, spec));
+    save_settings(&app, |s| s.set_prompt(id, spec));
 }
 
 #[tauri::command]
 pub fn reset_prompt(app: AppHandle, id: PromptId) -> PromptSpec {
     let spec = default_prompt(id);
     let stored = spec.clone();
-    save_settings(&app, |s| s.prompts.set(id, stored));
+    save_settings(&app, |s| s.set_prompt(id, stored));
     spec
 }
 
@@ -34,13 +34,38 @@ pub fn set_api_key(app: AppHandle, key: String) {
     save_settings(&app, |s| s.api_key = key);
 }
 
+/// Adds a target-language card at the end.
 #[tauri::command]
-pub fn set_english_target(app: AppHandle, lang: Lang) -> Result<(), String> {
-    if lang == Lang::En {
-        return Err("English cannot be the target for English text".into());
-    }
-    save_settings(&app, |s| s.english_target = lang);
-    Ok(())
+pub fn add_target(app: AppHandle, lang: Lang) -> Result<(), String> {
+    change_settings(&app, |s| s.add_target(lang))
+}
+
+/// Removes a card; the default one is refused.
+#[tauri::command]
+pub fn remove_target(app: AppHandle, lang: Lang) -> Result<(), String> {
+    change_settings(&app, |s| s.remove_target(lang))
+}
+
+/// Makes `lang` the language every lookup starts with.
+#[tauri::command]
+pub fn set_default_target(app: AppHandle, lang: Lang) -> Result<(), String> {
+    change_settings(&app, |s| s.set_default_target(lang))
+}
+
+/// Applies a change that may be refused; saves only when it is not.
+fn change_settings(
+    app: &AppHandle,
+    change: impl FnOnce(&mut Settings) -> Result<(), String>,
+) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let mut settings = state
+        .settings
+        .lock()
+        .map_err(|_| "settings lock poisoned".to_string())?;
+    let mut next = settings.clone();
+    change(&mut next)?;
+    *settings = next;
+    crate::settings::save(app, &settings)
 }
 
 /// Switches the translator hotkey. On a bad or taken shortcut the old one

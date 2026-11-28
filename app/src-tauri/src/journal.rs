@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::translator::{Direction, Kind};
+use crate::translator::{Kind, Lang};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LookupRecord {
@@ -15,7 +15,8 @@ pub struct LookupRecord {
     /// Always "lookup".
     pub kind: &'static str,
     pub mode: Kind,
-    pub direction: Direction,
+    /// The target language.
+    pub to: Lang,
     pub text: String,
     pub result: String,
     pub model: String,
@@ -50,14 +51,14 @@ pub fn append_lookup(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::translator::{Direction, Kind};
+    use crate::translator::{Kind, Lang};
 
     fn record(text: &str) -> LookupRecord {
         LookupRecord {
             ts: "2026-11-27T14:30:00+01:00".into(),
             kind: "lookup",
             mode: Kind::Word,
-            direction: Direction::EnRu,
+            to: Lang::Ru,
             text: text.into(),
             result: "рычаг".into(),
             model: "claude-haiku-5-5".into(),
@@ -83,7 +84,7 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0]["kind"], "lookup");
         assert_eq!(lines[0]["mode"], "word");
-        assert_eq!(lines[0]["direction"], "en-ru");
+        assert_eq!(lines[0]["to"], "ru");
         assert_eq!(lines[1]["text"], "gain");
         assert_eq!(lines[1]["ms"], 812);
     }

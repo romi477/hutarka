@@ -5,8 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { DIRECTIONS, popup, type Direction, type Snapshot } from "@/lib/api";
-import { DirectionMenu } from "./DirectionMenu";
+import { popup, type Lang, type Snapshot } from "@/lib/api";
+import { TargetMenu } from "./TargetMenu";
 import { SourceCell } from "./SourceCell";
 import { handleEditKey } from "./editKeys";
 
@@ -98,24 +98,24 @@ export function Popup() {
   }, [menu, hasSnap]);
 
   /**
-   * Runs the lookup again: the edited source text if it changed (direction
-   * null = detect), otherwise the same text with this direction / Explain.
+   * Runs the lookup again into `to`: the edited source text if it changed,
+   * otherwise the same text.
    */
   const run = useCallback(
-    (direction: Direction | null, explain: boolean) => {
+    (to: Lang, explain: boolean) => {
       if (!snap) return;
       setMenu(false);
       const edited = draft.trim() !== "" && draft !== snap.text;
       if (edited) {
         ownRun.current = true;
         popup
-          .translate(draft, direction, explain, snap.from_selection)
+          .translate(draft, to, explain, snap.from_selection)
           .catch((e) => {
             ownRun.current = false;
             setInputError(String(e));
           });
       } else if (snap.text) {
-        popup.rerun(direction ?? snap.direction, explain);
+        popup.rerun(to, explain);
       }
     },
     [snap, draft],
@@ -128,14 +128,14 @@ export function Popup() {
       const typing = (e.target as HTMLElement | null)?.tagName === "TEXTAREA";
       if (typing && e.key === "Enter" && e.metaKey) {
         e.preventDefault();
-        run(null, snap.explain);
+        run(snap.to, snap.explain);
         return;
       }
       // Inside the source field, plain keys and ⌘C / ⌘V edit text.
       if (
         typing &&
         e.key !== "Escape" &&
-        !(e.metaKey && "e1234".includes(e.key.toLowerCase()))
+        !(e.metaKey && "e123456789".includes(e.key.toLowerCase()))
       )
         return;
       if (e.key === "Escape") {
@@ -155,10 +155,11 @@ export function Popup() {
         popup.replace();
       } else if (e.metaKey && e.key.toLowerCase() === "e") {
         e.preventDefault();
-        run(draft !== snap.text ? null : snap.direction, !snap.explain);
-      } else if (e.metaKey && ["1", "2", "3", "4"].includes(e.key)) {
+        run(snap.to, !snap.explain);
+      } else if (e.metaKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault();
-        run(DIRECTIONS[Number(e.key) - 1].id, snap.explain);
+        const target = snap.targets[Number(e.key) - 1];
+        if (target) run(target, snap.explain);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -167,7 +168,6 @@ export function Popup() {
 
   if (!snap) return null;
 
-  const dir = DIRECTIONS.find((d) => d.id === snap.direction) ?? DIRECTIONS[0];
   const streaming = snap.status === "streaming";
   const done = snap.status === "done";
   const showsWord =
@@ -216,7 +216,7 @@ export function Popup() {
               <div className="relative">
                 <button
                   type="button"
-                  aria-label="Change direction"
+                  aria-label="Change target language"
                   aria-expanded={menu}
                   onClick={() => setMenu(!menu)}
                   className="flex h-6 items-center gap-1 rounded-md px-2 text-[12px] font-medium"
@@ -225,9 +225,8 @@ export function Popup() {
                     color: "var(--fg-2)",
                   }}
                 >
-                  {dir.from}
                   <Arrow />
-                  {dir.to}
+                  {snap.to.toUpperCase()}
                   <svg
                     width="10"
                     height="10"
@@ -243,8 +242,9 @@ export function Popup() {
                   </svg>
                 </button>
                 {menu && (
-                  <DirectionMenu
-                    current={snap.direction}
+                  <TargetMenu
+                    current={snap.to}
+                    targets={snap.targets}
                     onPick={(d) => run(d, snap.explain)}
                     onEditPrompts={() => popup.openSettings("translator")}
                   />
@@ -258,10 +258,7 @@ export function Popup() {
                   type="checkbox"
                   checked={snap.explain}
                   onChange={() =>
-                    run(
-                      draft !== snap.text ? null : snap.direction,
-                      !snap.explain,
-                    )
+                    run(snap.to, !snap.explain)
                   }
                   className="m-0 h-3.5 w-3.5"
                   style={{ accentColor: "var(--accent)" }}
@@ -328,7 +325,7 @@ export function Popup() {
                 setInputError("");
                 setDraft(t);
               }}
-              onTranslate={() => run(null, snap.explain)}
+              onTranslate={() => run(snap.to, snap.explain)}
             />
             {hasAnswer && (
               <div
@@ -403,7 +400,7 @@ function ErrorBody({ snap }: { snap: Snapshot }) {
   const kind = snap.error_kind ?? "api";
   const action =
     kind === "no_key"
-      ? { label: "Open Settings", run: () => popup.openSettings("llm") }
+      ? { label: "Open Settings", run: () => popup.openSettings("general") }
       : kind === "not_trusted"
         ? {
             label: "Open Accessibility Settings",

@@ -1,25 +1,32 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-export type Direction = "en-ru" | "en-pl" | "pl-en" | "ru-en";
 export type Kind = "text" | "word" | "explain";
 export type Status = "idle" | "streaming" | "done" | "error";
 export type ErrorKind = "no_key" | "not_trusted" | "too_long" | "api";
-export type Lang = "en" | "pl" | "ru";
+export type Lang = "en" | "ru" | "be" | "pl" | "de" | "es" | "el" | "it" | "fr";
 export type Effort = "low" | "medium" | "high";
 
-export const DIRECTIONS: { id: Direction; label: string; from: string; to: string }[] = [
-  { id: "en-ru", label: "English → Russian", from: "EN", to: "RU" },
-  { id: "en-pl", label: "English → Polish", from: "EN", to: "PL" },
-  { id: "pl-en", label: "Polish → English", from: "PL", to: "EN" },
-  { id: "ru-en", label: "Russian → English", from: "RU", to: "EN" },
-];
+export const LANG_NAMES: Record<Lang, string> = {
+  en: "English",
+  ru: "Russian",
+  be: "Belarusian",
+  pl: "Polish",
+  de: "German",
+  es: "Spanish",
+  el: "Greek",
+  it: "Italian",
+  fr: "French",
+};
 
 export interface Snapshot {
   id: number;
   status: Status;
   text: string;
-  direction: Direction;
+  /** The language this lookup translates into. */
+  to: Lang;
+  /** Every target card in Settings order: the menu and ⌘1…⌘9. */
+  targets: Lang[];
   kind: Kind;
   explain: boolean;
   result: string;
@@ -34,9 +41,9 @@ export const popup = {
   snapshot: () => invoke<Snapshot | null>("popup_snapshot"),
   onSnapshot: (cb: (s: Snapshot) => void): Promise<UnlistenFn> =>
     listen<Snapshot>("popup:snapshot", (e) => cb(e.payload)),
-  rerun: (direction: Direction, explain: boolean) => invoke("rerun", { direction, explain }),
-  translate: (text: string, direction: Direction | null, explain: boolean, fromSelection: boolean) =>
-    invoke("translate_text", { text, direction, explain, fromSelection }),
+  rerun: (to: Lang, explain: boolean) => invoke("rerun", { to, explain }),
+  translate: (text: string, to: Lang, explain: boolean, fromSelection: boolean) =>
+    invoke("translate_text", { text, to, explain, fromSelection }),
   copy: () => invoke("copy_result"),
   copyText: (text: string) => invoke("copy_text", { text }),
   clipboardText: () => invoke<string>("clipboard_text"),
@@ -48,7 +55,7 @@ export const popup = {
   openAccessibility: () => invoke("open_accessibility"),
 };
 
-export type PromptId = `translate:${Direction}` | "word" | "explain";
+export type PromptId = `translate:${Lang}` | "word" | "explain";
 
 export interface PromptSpec {
   system: string;
@@ -56,16 +63,23 @@ export interface PromptSpec {
   effort: Effort;
 }
 
+export interface Target {
+  lang: Lang;
+  default: boolean;
+  prompt: PromptSpec;
+}
+
 export interface SettingsView {
   has_api_key: boolean;
   hotkey: string;
-  english_target: Lang;
   explain: boolean;
+  targets: Target[];
   prompts: {
-    translate: Record<Direction, PromptSpec>;
     word: PromptSpec;
     explain: PromptSpec;
   };
+  /** Every language a card can have, in list order. */
+  languages: Lang[];
 }
 
 export const MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5"];
@@ -75,7 +89,9 @@ export const settings = {
   setPrompt: (id: PromptId, spec: PromptSpec) => invoke("set_prompt", { id, spec }),
   resetPrompt: (id: PromptId) => invoke<PromptSpec>("reset_prompt", { id }),
   setApiKey: (key: string) => invoke("set_api_key", { key }),
-  setEnglishTarget: (lang: Lang) => invoke("set_english_target", { lang }),
+  addTarget: (lang: Lang) => invoke("add_target", { lang }),
+  removeTarget: (lang: Lang) => invoke("remove_target", { lang }),
+  setDefaultTarget: (lang: Lang) => invoke("set_default_target", { lang }),
   setHotkey: (hotkey: string) => invoke("set_hotkey", { hotkey }),
   onSection: (cb: (section: string) => void): Promise<UnlistenFn> =>
     listen<string>("settings:section", (e) => cb(e.payload)),

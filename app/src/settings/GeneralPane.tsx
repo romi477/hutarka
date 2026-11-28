@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { settings, type Lang, type SettingsView } from "@/lib/api";
+import { settings, type SettingsView } from "@/lib/api";
+import { ApiKeySection } from "./ApiKeySection";
 
 export function GeneralPane({ view, onChange }: { view: SettingsView; onChange: () => void }) {
   const [hotkey, setHotkey] = useState(view.hotkey);
@@ -18,11 +19,6 @@ export function GeneralPane({ view, onChange }: { view: SettingsView; onChange: 
     } catch (e) {
       setError(String(e));
     }
-  };
-
-  const setTarget = async (lang: Lang) => {
-    await settings.setEnglishTarget(lang);
-    onChange();
   };
 
   return (
@@ -56,26 +52,7 @@ export function GeneralPane({ view, onChange }: { view: SettingsView; onChange: 
           A key combination such as Ctrl+Alt+T, Cmd+Shift+D or Alt+Space.
         </span>
       </section>
-      <section className="flex flex-col gap-1.5">
-        <span className="font-medium">English text is translated to</span>
-        <div className="flex gap-4">
-          {(["ru", "pl"] as const).map((lang) => (
-            <label key={lang} className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                name="english-target"
-                checked={view.english_target === lang}
-                onChange={() => setTarget(lang)}
-                style={{ accentColor: "var(--accent)" }}
-              />
-              {lang === "ru" ? "Russian" : "Polish"}
-            </label>
-          ))}
-        </div>
-        <span className="text-[12px]" style={{ color: "var(--muted)" }}>
-          Picking a direction in the popup changes this too.
-        </span>
-      </section>
+      <ApiKeySection view={view} onChange={onChange} />
     </>
   );
 }

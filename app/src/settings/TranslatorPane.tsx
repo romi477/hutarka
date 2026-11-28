@@ -1,24 +1,43 @@
 import { useEffect, useState } from "react";
 import {
-  DIRECTIONS,
+  LANG_NAMES,
   MODELS,
   settings,
   type Effort,
+  type Lang,
   type PromptId,
   type PromptSpec,
   type SettingsView,
 } from "@/lib/api";
 
-const ITEMS: { group: string; id: PromptId; label: string }[] = [
-  ...DIRECTIONS.map((d) => ({ group: "Translate", id: `translate:${d.id}` as PromptId, label: d.label })),
-  { group: "Any direction", id: "word", label: "Word lookup" },
-  { group: "Any direction", id: "explain", label: "Explain" },
-];
+interface Item {
+  group: string;
+  id: PromptId;
+  label: string;
+  /** Set for a target-language card. */
+  lang?: Lang;
+  isDefault?: boolean;
+}
+
+function itemsOf(view: SettingsView): Item[] {
+  return [
+    ...view.targets.map((t) => ({
+      group: "Translate into",
+      id: `translate:${t.lang}` as PromptId,
+      label: LANG_NAMES[t.lang],
+      lang: t.lang,
+      isDefault: t.default,
+    })),
+    { group: "Any language", id: "word", label: "Word lookup" },
+    { group: "Any language", id: "explain", label: "Explain" },
+  ];
+}
 
 function specOf(view: SettingsView, id: PromptId): PromptSpec {
   if (id === "word") return view.prompts.word;
   if (id === "explain") return view.prompts.explain;
-  return view.prompts.translate[id.slice("translate:".length) as keyof SettingsView["prompts"]["translate"]];
+  const lang = id.slice("translate:".length);
+  return (view.targets.find((t) => t.lang === lang) ?? view.targets[0]).prompt;
 }
 
 export function TranslatorPane({ view, onChange }: { view: SettingsView; onChange: () => void }) {
@@ -26,8 +45,34 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
   const [spec, setSpec] = useState<PromptSpec>(specOf(view, "explain"));
   const [status, setStatus] = useState("");
 
+  const items = itemsOf(view);
+  const current = items.find((i) => i.id === selected);
+  const unused = view.languages.filter((l) => !view.targets.some((t) => t.lang === l));
+
   // Load the selected prompt; keep unsaved edits of the open one on reloads.
   useEffect(() => setSpec(specOf(view, selected)), [selected]);
+
+  // The selected card was removed: fall back to Explain.
+  useEffect(() => {
+    if (!current) setSelected("explain");
+  }, [current]);
+
+  /** Runs a card action; a refusal from the backend shows as the status. */
+  const act = async (action: () => Promise<unknown>, done: string) => {
+    try {
+      await action();
+      setStatus(done);
+    } catch (e) {
+      setStatus(String(e));
+    }
+    onChange();
+  };
+
+  const add = (lang: Lang) =>
+    act(async () => {
+      await settings.addTarget(lang);
+      setSelected(`translate:${lang}`);
+    }, `${LANG_NAMES[lang]} added`);
 
   const save = async (next: PromptSpec) => {
     setSpec(next);
@@ -49,12 +94,11 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
     setSelected(id);
   };
 
-  const usesPlaceholders = selected === "word" || selected === "explain";
 
   return (
     <>
       <div className="flex items-center gap-3">
-        <h1 className="m-0 text-xl font-semibold">Translator</h1>
+        <h1 className="m-0 text-xl font-semibold">Translation</h1>
         <span className="flex-1" />
         <span className="text-[12px]" style={{ color: "var(--muted)" }}>
           Hotkey
@@ -68,9 +112,9 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
       </div>
       <div className="flex min-h-0 flex-1 gap-4">
         <div role="listbox" aria-label="Prompts" className="flex w-[190px] shrink-0 flex-col gap-0.5">
-          {ITEMS.map((item, i) => (
+          {items.map((item, i) => (
             <div key={item.id} className="flex flex-col">
-              {(i === 0 || ITEMS[i - 1].group !== item.group) && (
+              {(i === 0 || items[i - 1].group !== item.group) && (
                 <span
                   className="px-2.5 pt-3 pb-1 text-[11px] font-semibold tracking-wide uppercase first:pt-0"
                   style={{ color: "var(--muted)" }}
@@ -91,7 +135,24 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
                 }
               >
                 {item.label}
+                {item.isDefault && <span className="opacity-60"> · default</span>}
               </button>
+              {item.lang && items[i + 1]?.group !== item.group && unused.length > 0 && (
+                <select
+                  aria-label="Add language"
+                  value=""
+                  onChange={(e) => e.target.value && add(e.target.value as Lang)}
+                  className="mt-1 h-[26px] rounded-md border px-1.5 text-[12px]"
+                  style={{ background: "var(--field)", borderColor: "var(--border)" }}
+                >
+                  <option value="">Add language…</option>
+                  {unused.map((l) => (
+                    <option key={l} value={l}>
+                      {LANG_NAMES[l]}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           ))}
         </div>
@@ -125,6 +186,29 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
               <option>medium</option>
               <option>high</option>
             </select>
+            <span className="flex-1" />
+            {current?.lang && !current.isDefault && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    act(() => settings.setDefaultTarget(current.lang!), "Every lookup now starts here")
+                  }
+                  className="h-[26px] rounded-md border px-3 text-[12px]"
+                  style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+                >
+                  Make default
+                </button>
+                <button
+                  type="button"
+                  onClick={() => act(() => settings.removeTarget(current.lang!), "Removed")}
+                  className="h-[26px] rounded-md border px-3 text-[12px]"
+                  style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+                >
+                  Delete
+                </button>
+              </>
+            )}
           </div>
           <label htmlFor="prompt" className="text-[12px]" style={{ color: "var(--muted)" }}>
             System prompt
@@ -142,12 +226,12 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
           />
           <div className="flex items-center gap-2">
             <span className="text-[12px]" style={{ color: "var(--muted)" }}>
-              {usesPlaceholders ? (
-                <>
-                  <code>{"{from}"}</code> and <code>{"{to}"}</code> are filled from the direction.
-                </>
-              ) : (
+              {current?.lang ? (
                 "Saved when you leave the field."
+              ) : (
+                <>
+                  <code>{"{to}"}</code> is the language chosen in the popup.
+                </>
               )}
             </span>
             <span className="text-[12px]" style={{ color: "var(--muted)" }}>
