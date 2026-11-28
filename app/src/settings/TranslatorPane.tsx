@@ -168,7 +168,39 @@ export function TranslatorPane({
           ))}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-          <div className="flex flex-wrap items-center gap-2.5">
+          {current?.lang && (
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 truncate font-semibold">Translate into {current.label}</span>
+              <span className="flex-1" />
+              {current.isDefault ? (
+                <span className="text-[12px]" style={{ color: "var(--muted)" }}>
+                  Default: every lookup starts here
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      act(() => settings.setDefaultTarget(current.lang!), "Every lookup now starts here")
+                    }
+                    className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
+                    style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+                  >
+                    Make default
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => act(() => settings.removeTarget(current.lang!), "Removed")}
+                    className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
+                    style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          <div className="flex items-center gap-2.5">
             <label htmlFor="model" className="text-[12px]" style={{ color: "var(--muted)" }}>
               Model
             </label>
@@ -197,29 +229,6 @@ export function TranslatorPane({
               <option>medium</option>
               <option>high</option>
             </select>
-            <span className="flex-1" />
-            {current?.lang && !current.isDefault && (
-              <>
-                <button
-                  type="button"
-                  onClick={() =>
-                    act(() => settings.setDefaultTarget(current.lang!), "Every lookup now starts here")
-                  }
-                  className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
-                  style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
-                >
-                  Make default
-                </button>
-                <button
-                  type="button"
-                  onClick={() => act(() => settings.removeTarget(current.lang!), "Removed")}
-                  className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
-                  style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
-                >
-                  Delete
-                </button>
-              </>
-            )}
           </div>
           <label htmlFor="prompt" className="text-[12px]" style={{ color: "var(--muted)" }}>
             System prompt
