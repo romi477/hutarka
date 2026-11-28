@@ -75,6 +75,16 @@ export function Popup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookupId]);
 
+  // Pinned: the popup stays open when it loses focus and follows across Spaces.
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    popup.pinned().then(setPinned);
+    const off = popup.onPinned(setPinned);
+    return () => {
+      off.then((f) => f());
+    };
+  }, []);
+
   useEffect(() => {
     popup.snapshot().then((s) => s && setSnap(s));
     const off = popup.onSnapshot((s) => {
@@ -144,7 +154,7 @@ export function Popup() {
       if (
         typing &&
         e.key !== "Escape" &&
-        !(e.metaKey && "e123456789".includes(e.key.toLowerCase()))
+        !(e.metaKey && "ep123456789".includes(e.key.toLowerCase()))
       )
         return;
       if (e.key === "Escape") {
@@ -162,6 +172,9 @@ export function Popup() {
       ) {
         e.preventDefault();
         popup.replace();
+      } else if (e.metaKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        popup.pin(!pinned);
       } else if (e.metaKey && e.key.toLowerCase() === "e") {
         e.preventDefault();
         run(snap.to, !snap.explain);
@@ -173,7 +186,7 @@ export function Popup() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [snap, menu, run, draft]);
+  }, [snap, menu, run, draft, pinned]);
 
   if (!snap) return null;
 
@@ -276,6 +289,19 @@ export function Popup() {
                   style={{ accentColor: "var(--accent)" }}
                 />
                 Explain
+              </label>
+              <label
+                className="flex h-6 items-center gap-1.5 px-1 text-[12px]"
+                title="Keep open when it loses focus, on every Space (⌘P)"
+              >
+                <input
+                  type="checkbox"
+                  checked={pinned}
+                  onChange={() => popup.pin(!pinned)}
+                  className="m-0 h-3.5 w-3.5"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                Pin
               </label>
               <span data-tauri-drag-region className="flex-1 self-stretch" />
               <span

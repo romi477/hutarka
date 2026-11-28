@@ -7,8 +7,11 @@
 #![allow(clippy::unused_unit)]
 
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, Position, Size, WebviewUrl};
+use tauri::{
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, Position, Size, WebviewUrl,
+};
 use tauri_nspanel::{
     CollectionBehavior, ManagerExt, PanelBuilder, PanelLevel, StyleMask, tauri_panel,
 };
@@ -22,6 +25,23 @@ const INITIAL_HEIGHT: f64 = 200.0;
 const MIN_HEIGHT: f64 = 60.0;
 /// Gap between the mouse and the popup's top-left corner, in points.
 const OFFSET: f64 = 8.0;
+
+/// Pinned: losing the keyboard (a click elsewhere, another Space) does not
+/// close the popup, and it shows on every Space. Explicit closing (Esc,
+/// Close, Copy, Replace) unpins it.
+static PINNED: AtomicBool = AtomicBool::new(false);
+
+fn behavior(pinned: bool) -> CollectionBehavior {
+    let b = CollectionBehavior::new();
+    // Unpinned it opens on the current Space and stays there; switching
+    // Spaces makes it lose the keyboard, which closes it.
+    let b = if pinned {
+        b.can_join_all_spaces()
+    } else {
+        b.move_to_active_space()
+    };
+    b.full_screen_auxiliary()
+}
 
 tauri_panel! {
     panel!(TranslatorPanel {
@@ -112,25 +132,33 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .corner_radius(0.0)
         .style_mask(StyleMask::empty().borderless().nonactivating_panel())
         .with_window(|w| w.decorations(false).transparent(true))
-        .collection_behavior(
-            // Opens on the Space you are on and stays there; switching
-            // Spaces makes it lose the keyboard, which closes it.
-            CollectionBehavior::new()
-                .move_to_active_space()
-                .full_screen_auxiliary(),
-        )
+        .collection_behavior(behavior(false))
         .build()?;
     let events = TranslatorPanelEvents::new();
     let handle = app.clone();
-    // Click outside (another window becomes key): close.
-    events.window_did_resign_key(move |_| hide(&handle));
+    // Click outside (another window becomes key): close, unless pinned.
+    events.window_did_resign_key(move |_| {
+        if !PINNED.load(Ordering::SeqCst) {
+            hide(&handle);
+        }
+    });
     panel.set_event_handler(Some(events.as_ref()));
     panel.hide();
     Ok(())
 }
 
-/// Shows the popup at the mouse and gives it the keyboard.
+/// Shows the popup at the mouse and gives it the keyboard. A pinned popup
+/// stays where it is.
 pub fn show_near_cursor(app: &AppHandle) {
+    if PINNED.load(Ordering::SeqCst) {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            if let Ok(panel) = handle.get_webview_panel(LABEL) {
+                panel.show_and_make_key();
+            }
+        });
+        return;
+    }
     if let Ok(cursor) = app.cursor_position()
         && let Ok(mut placed) = app.state::<Anchor>().0.lock()
     {
@@ -149,7 +177,27 @@ pub fn show_near_cursor(app: &AppHandle) {
     });
 }
 
+/// Pins or unpins the popup and tells the page.
+pub fn set_pinned(app: &AppHandle, pinned: bool) {
+    if PINNED.swap(pinned, Ordering::SeqCst) == pinned {
+        return;
+    }
+    let _ = app.emit_to(LABEL, "popup:pinned", pinned);
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Ok(panel) = handle.get_webview_panel(LABEL) {
+            panel.set_collection_behavior(behavior(pinned).value());
+        }
+    });
+}
+
+pub fn is_pinned() -> bool {
+    PINNED.load(Ordering::SeqCst)
+}
+
+/// Closes the popup and unpins it.
 pub fn hide(app: &AppHandle) {
+    set_pinned(app, false);
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Ok(panel) = handle.get_webview_panel(LABEL)

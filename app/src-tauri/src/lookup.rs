@@ -454,7 +454,10 @@ pub fn copy_result(app: AppHandle) -> Result<(), String> {
     app.clipboard()
         .write_text(result)
         .map_err(|e| e.to_string())?;
-    popup::hide(&app);
+    // A pinned popup stays open.
+    if !popup::is_pinned() {
+        popup::hide(&app);
+    }
     Ok(())
 }
 
@@ -506,8 +509,22 @@ pub fn resize_popup(app: AppHandle, height: f64, width: f64) {
 
 #[tauri::command]
 pub fn open_settings(app: AppHandle, section: Option<String>) {
-    popup::hide(&app);
+    if !popup::is_pinned() {
+        popup::hide(&app);
+    }
     crate::windows::open_settings(&app, section.as_deref());
+}
+
+/// The Pin checkbox in the popup header.
+#[tauri::command]
+pub fn pin_popup(app: AppHandle, pinned: bool) {
+    popup::set_pinned(&app, pinned);
+}
+
+/// Whether the popup is pinned (the page asks when it loads).
+#[tauri::command]
+pub fn popup_pinned() -> bool {
+    popup::is_pinned()
 }
 
 #[tauri::command]

@@ -58,6 +58,8 @@ pub fn run() {
             lookup::rerun,
             lookup::choose_target,
             lookup::clear_popup,
+            lookup::pin_popup,
+            lookup::popup_pinned,
             lookup::translate_text,
             lookup::copy_result,
             lookup::copy_text,

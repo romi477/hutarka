@@ -49,10 +49,11 @@ Select text, press **⌃⌥T** (or menu bar › Translate).
 - **Target language.** Every lookup translates into the default language (English unless you change it in Settings › Translation). The model works out the language of the text itself, so any source language works. The button in the popup header (`→ EN`) opens the list of your languages; picking one, or ⌘1 … ⌘9, translates into it, for this lookup only. Hutarka does not check whether the text is already in the target language: pick another one when it is.
 - **Word or text.** One to three words (no sentence punctuation) get a short dictionary entry: the translation on the first line, then meanings with part of speech, examples, collocations. Longer text gets a plain translation.
 - **Explain** (checkbox in the header, ⌘E) gives a deeper answer instead. For a word or phrase: the translation, the meaning, five common sentences with translations, and a note on typical mistakes. For a sentence: its translation, then the idioms, phrasal verbs and grammar worth learning in it, with examples. The checkbox state is remembered.
-- **Copy** (⌘C) copies the answer and closes the popup. If you selected part of the answer in the popup, ⌘C copies only that part and the popup stays open. Select with the mouse, or ⌘A for the whole answer. In the original field ⌘C, ⌘X, ⌘V, ⌘A and ⌘Z work as usual.
+- **Copy** (⌘C) copies the answer and closes the popup (a pinned one stays open). If you selected part of the answer in the popup, ⌘C copies only that part and the popup stays open. Select with the mouse, or ⌘A for the whole answer. In the original field ⌘C, ⌘X, ⌘V, ⌘A and ⌘Z work as usual.
 - **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields. Whatever was on your clipboard (text, images, files) comes back afterwards. Not shown for typed text.
 - **Move** the popup by dragging its header. It grows with the answer up to the screen's height; then only the answer scrolls, and the header, the original and the buttons stay on screen. Long text (original and answer together over about 1,200 characters) opens a wider popup.
 - **Spaces.** The popup opens on the Space you are on and stays there. Switching to another Space closes it, like a click outside.
+- **Pin** (checkbox in the header, ⌘P) keeps the popup open: a click elsewhere or another Space does not close it, it shows on every Space, Copy and Settings leave it open, and the hotkey translates in it where it is. Esc, Close, × or Replace close it and unpin it.
 - **Esc**, the Close button at the bottom right, or a click outside closes the popup.
 
 Popup keys:
@@ -63,10 +64,11 @@ Popup keys:
 | ⌘C | copy the answer |
 | ↵ | replace the selection with the answer (outside the original field; only for a selection) |
 | ⌘E | toggle Explain and run again |
+| ⌘P | pin or unpin the popup |
 | ⌘1 … ⌘9 | run again into the first, second, … language of the list in Settings › Translation |
 | Esc | close |
 
-The header holds the target language, the Explain checkbox, the model with the time the answer took, and the close button.
+The header holds the target language, the Explain and Pin checkboxes, the model with the time the answer took, and the close button.
 
 ## Settings
 

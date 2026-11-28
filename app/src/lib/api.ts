@@ -47,6 +47,10 @@ export const popup = {
     invoke("translate_text", { text, to, explain, fromSelection }),
   copy: () => invoke("copy_result"),
   clear: () => invoke("clear_popup"),
+  pin: (pinned: boolean) => invoke("pin_popup", { pinned }),
+  pinned: () => invoke<boolean>("popup_pinned"),
+  onPinned: (cb: (pinned: boolean) => void): Promise<UnlistenFn> =>
+    listen<boolean>("popup:pinned", (e) => cb(e.payload)),
   copyText: (text: string) => invoke("copy_text", { text }),
   clipboardText: () => invoke<string>("clipboard_text"),
   replace: () => invoke("replace_result"),
