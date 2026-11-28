@@ -64,8 +64,20 @@ struct DefaultFile {
     hotkey: String,
     explain: bool,
     translate_template: PromptSpec,
+    /// Earlier shipped templates: a stored card still carrying one of them
+    /// unedited gets the current template on load.
+    previous_translate_templates: Vec<String>,
     targets: Vec<DefaultTarget>,
     prompts: Prompts,
+    /// Earlier shipped Word and Explain prompts, replaced on load when stored
+    /// unedited.
+    previous_prompts: PreviousPrompts,
+}
+
+#[derive(Deserialize)]
+struct PreviousPrompts {
+    word: Vec<String>,
+    explain: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -77,6 +89,9 @@ struct DefaultTarget {
 struct Shipped {
     settings: Settings,
     template: PromptSpec,
+    previous_templates: Vec<String>,
+    previous_word: Vec<String>,
+    previous_explain: Vec<String>,
 }
 
 /// The embedded file is checked by the tests, so a broken one is a build bug.
@@ -104,6 +119,9 @@ fn shipped() -> &'static Shipped {
                 prompts: f.prompts,
             },
             template,
+            previous_templates: f.previous_translate_templates,
+            previous_word: f.previous_prompts.word,
+            previous_explain: f.previous_prompts.explain,
         }
     })
 }
@@ -331,7 +349,8 @@ pub fn load(app: &AppHandle) -> Settings {
 /// Reads stored settings field by field: an invalid field (hand edit) takes
 /// its default and is named in the returned list, while the rest (the key,
 /// edited prompts) is kept, so the next save does not wipe it. Fields of
-/// older versions (`english_target`, `prompts.translate`) are ignored.
+/// older versions (`english_target`, `prompts.translate`) are ignored, and
+/// prompts still carrying an earlier shipped text get the current one.
 fn from_stored(stored: Value) -> (Settings, Vec<String>) {
     let mut s = Settings::default();
     let mut bad = Vec::new();
@@ -390,11 +409,22 @@ fn from_stored(stored: Value) -> (Settings, Vec<String>) {
         }
         Some(_) => bad.push("prompts".into()),
     }
+    let base = &defaults().prompts;
+    if shipped().previous_word.contains(&s.prompts.word.system) {
+        s.prompts.word.system = base.word.system.clone();
+    }
+    if shipped()
+        .previous_explain
+        .contains(&s.prompts.explain.system)
+    {
+        s.prompts.explain.system = base.explain.system.clone();
+    }
     (s, bad)
 }
 
 /// One stored card; a card without a prompt gets the shipped one, so a
-/// broken card costs only itself.
+/// broken card costs only itself. An unedited earlier shipped prompt is
+/// replaced by the current one (model and effort are kept).
 fn stored_target(card: &Value) -> Option<Target> {
     #[derive(Deserialize)]
     struct Stored {
@@ -404,10 +434,18 @@ fn stored_target(card: &Value) -> Option<Target> {
         prompt: Option<PromptSpec>,
     }
     let c: Stored = serde_json::from_value(card.clone()).ok()?;
+    let mut prompt = c.prompt.unwrap_or_else(|| translate_default(c.lang));
+    let stale = shipped()
+        .previous_templates
+        .iter()
+        .any(|old| render(old, c.lang) == prompt.system);
+    if stale {
+        prompt.system = translate_default(c.lang).system;
+    }
     Some(Target {
         lang: c.lang,
         default: c.default,
-        prompt: c.prompt.unwrap_or_else(|| translate_default(c.lang)),
+        prompt,
     })
 }
 
@@ -553,6 +591,34 @@ mod tests {
         );
         assert_eq!(s.targets[1].prompt.system, "my Russian prompt");
         assert_eq!(s.targets[2].prompt, translate_default(Lang::De));
+    }
+
+    #[test]
+    fn card_with_an_old_shipped_prompt_gets_the_new_one() {
+        let old = shipped().previous_templates[0].replace("{to}", "English");
+        let mut stale = card(Lang::En, true);
+        stale.prompt.system = old;
+        let mut edited = card(Lang::Ru, false);
+        edited.prompt.system = "my Russian prompt".into();
+        let mut stored = serde_json::to_value(defaults()).expect("value");
+        stored["targets"] = serde_json::to_value(vec![stale, edited]).expect("value");
+        let (s, bad) = from_stored(stored);
+        assert!(bad.is_empty());
+        assert_eq!(s.targets[0].prompt, translate_default(Lang::En));
+        assert_eq!(s.targets[1].prompt.system, "my Russian prompt");
+    }
+
+    #[test]
+    fn old_shipped_word_and_explain_prompts_get_the_new_ones() {
+        let mut stored = serde_json::to_value(defaults()).expect("value");
+        stored["prompts"]["word"]["system"] = shipped().previous_word[0].clone().into();
+        stored["prompts"]["word"]["model"] = "claude-sonnet-5-5".into();
+        stored["prompts"]["explain"]["system"] = "my explain".into();
+        let (s, bad) = from_stored(stored);
+        assert!(bad.is_empty());
+        assert_eq!(s.prompts.word.system, defaults().prompts.word.system);
+        assert_eq!(s.prompts.word.model, "claude-sonnet-5-5");
+        assert_eq!(s.prompts.explain.system, "my explain");
     }
 
     #[test]
