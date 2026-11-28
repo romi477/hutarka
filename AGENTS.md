@@ -35,7 +35,7 @@ One user, one machine: the author's Apple Silicon MacBook. Hutarka is **not dist
 - **No auto-update**: remove `tauri-plugin-updater` and the update checker.
 - **System audio capture**: Yogurt's `yogurt-audio` Swift helper used as a sidecar process, unchanged at first. Built with `swiftc` from the Command Line Tools (no Xcode project needed). Porting it to Rust (`objc2-*` crates) is a later, optional step.
 - **MCP server**: in Rust, local only, read-only, off by default. Ported from Yogurt's `app/src/main/mcp/server.ts`, plus a live `get_lines_since` tool reading the JSONL journal (see Storage).
-- **License**: undecided (both sources are MIT; MIT is the likely choice).
+- **License**: MIT (`LICENSE`), the same as both sources.
 - **No subscriptions by default**: Hutarka replaces a paid dictation app, so the default setup costs nothing beyond pay-per-use API calls. Speech recognition is **local by default**. A paid cloud ASR subscription is acceptable later if Whisper quality is not good enough (see "Speech engines").
 - **API keys**: stored in the app's settings (entered in the Settings window). Settings live in the app data directory, **never** in the open `~/Hutarka` folder, so keys are not synced or shared with the journals.
 

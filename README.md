@@ -75,4 +75,4 @@ If any of their code is reused, their license notices will be kept in this repos
 
 ## License
 
-To be decided. (The projects above are MIT.)
+MIT, see [LICENSE](LICENSE). (The projects above are MIT too.)
