@@ -56,6 +56,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             lookup::popup_snapshot,
             lookup::rerun,
+            lookup::choose_target,
             lookup::translate_text,
             lookup::copy_result,
             lookup::copy_text,

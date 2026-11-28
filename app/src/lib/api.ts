@@ -42,6 +42,7 @@ export const popup = {
   onSnapshot: (cb: (s: Snapshot) => void): Promise<UnlistenFn> =>
     listen<Snapshot>("popup:snapshot", (e) => cb(e.payload)),
   rerun: (to: Lang, explain: boolean) => invoke("rerun", { to, explain }),
+  choose: (to: Lang, explain: boolean) => invoke("choose_target", { to, explain }),
   translate: (text: string, to: Lang, explain: boolean, fromSelection: boolean) =>
     invoke("translate_text", { text, to, explain, fromSelection }),
   copy: () => invoke("copy_result"),

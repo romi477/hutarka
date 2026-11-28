@@ -123,6 +123,18 @@ impl AppState {
         Some(snap.clone())
     }
 
+    /// Sets the language and Explain of the lookup the popup shows, for a
+    /// popup with nothing to translate yet: the first translation uses them.
+    fn choose(&self, to: Lang, explain: bool) -> Option<Snapshot> {
+        let mut snap = self.snapshot.lock().ok()?;
+        if !self.sessions.is_current(snap.id) {
+            return None;
+        }
+        snap.to = to;
+        snap.explain = explain;
+        Some(snap.clone())
+    }
+
     /// The client for `key`: the kept one, or a new one when the key changed.
     fn client_for(&self, key: &str) -> Result<Client, hutarka_llm::Error> {
         let mut slot = self
@@ -359,6 +371,15 @@ pub fn rerun(app: AppHandle, to: Lang, explain: bool) {
     start(&app, snap.text, to, kind, snap.from_selection);
 }
 
+/// A language or Explain picked in a popup with no text yet.
+#[tauri::command]
+pub fn choose_target(app: AppHandle, to: Lang, explain: bool) {
+    save_settings(&app, |s| s.explain = explain);
+    if let Some(snap) = app.state::<AppState>().choose(to, explain) {
+        let _ = app.emit_to(popup::LABEL, "popup:snapshot", snap);
+    }
+}
+
 /// The answer Copy and Replace may use: a finished, non-empty one.
 fn finished_result(snap: &Snapshot) -> Option<String> {
     (snap.status == Status::Done && !snap.result.is_empty()).then(|| snap.result.clone())
@@ -496,6 +517,18 @@ mod tests {
         s.status = Status::Streaming;
         s.result.clear();
         s
+    }
+
+    #[test]
+    fn choice_in_an_empty_popup_is_kept() {
+        let state = AppState::new(crate::settings::defaults().clone());
+        let a = state.sessions.begin();
+        let mut idle = snapshot_for(&state, a);
+        idle.status = Status::Idle;
+        state.replace(idle);
+        let snap = state.choose(Lang::Pl, true).expect("snapshot");
+        assert_eq!((snap.to, snap.explain), (Lang::Pl, true));
+        assert_eq!(state.snapshot().expect("snapshot").to, Lang::Pl);
     }
 
     #[test]

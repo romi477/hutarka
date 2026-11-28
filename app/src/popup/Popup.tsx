@@ -99,7 +99,7 @@ export function Popup() {
 
   /**
    * Runs the lookup again into `to`: the edited source text if it changed,
-   * otherwise the same text.
+   * otherwise the same text; with no text yet, only remembers the choice.
    */
   const run = useCallback(
     (to: Lang, explain: boolean) => {
@@ -116,6 +116,9 @@ export function Popup() {
           });
       } else if (snap.text) {
         popup.rerun(to, explain);
+      } else {
+        // Nothing to translate yet: keep the choice for the first translation.
+        popup.choose(to, explain);
       }
     },
     [snap, draft],

@@ -78,7 +78,9 @@ Menu bar › Settings… (⌘,).
   - A prompt is saved when you leave the field; **Reset to default** brings back the shipped text.
 - **Audio capture** and **Speech**: empty until meeting recording and dictation are built.
 
-Edited prompts are kept as they are when a new version ships different default prompts. To get a new default, press Reset to default on that prompt. An edited Word lookup or Explain prompt from an older version may still contain `{from}`; it is filled with "the original language".
+Edited prompts are kept as they are when a new version ships different default prompts. To get a new default, press Reset to default on that prompt.
+
+Updating from the version with four fixed directions (EN → RU, EN → PL, PL → EN, RU → EN): the key, the hotkey and edited Word lookup and Explain prompts are kept. The four per-direction translation prompts are not carried over, edited or not: you get the shipped cards English (default), Russian and Polish with the shipped translation prompt. An edited Word lookup or Explain prompt from that version may still contain `{from}`; it is filled with "the original language".
 
 ## Where things are saved
 

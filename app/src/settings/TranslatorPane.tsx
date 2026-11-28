@@ -168,7 +168,7 @@ export function TranslatorPane({
           ))}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <label htmlFor="model" className="text-[12px]" style={{ color: "var(--muted)" }}>
               Model
             </label>
@@ -205,7 +205,7 @@ export function TranslatorPane({
                   onClick={() =>
                     act(() => settings.setDefaultTarget(current.lang!), "Every lookup now starts here")
                   }
-                  className="h-[26px] rounded-md border px-3 text-[12px]"
+                  className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
                   style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
                 >
                   Make default
@@ -213,7 +213,7 @@ export function TranslatorPane({
                 <button
                   type="button"
                   onClick={() => act(() => settings.removeTarget(current.lang!), "Removed")}
-                  className="h-[26px] rounded-md border px-3 text-[12px]"
+                  className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
                   style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
                 >
                   Delete
@@ -252,7 +252,7 @@ export function TranslatorPane({
             <button
               type="button"
               onClick={reset}
-              className="h-7 rounded-md border px-3 text-[12px]"
+              className="h-7 shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
               style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
             >
               Reset to default
