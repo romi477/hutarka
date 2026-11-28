@@ -34,14 +34,13 @@ export function GeneralPane({ view, onChange }: { view: SettingsView; onChange: 
             value={hotkey}
             onChange={(e) => setHotkey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && saveHotkey()}
-            className="h-7 w-56 rounded-md border px-2"
-            style={{ background: "var(--field)", borderColor: "var(--border)", userSelect: "text" }}
+            className="field h-7 w-56 rounded-md px-2"
+            style={{ userSelect: "text" }}
           />
           <button
             type="button"
             onClick={saveHotkey}
-            className="h-7 rounded-md border px-3 text-[12px]"
-            style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+            className="btn-primary h-7 rounded-md px-3 text-[12px]"
           >
             Save
           </button>

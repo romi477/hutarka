@@ -31,15 +31,14 @@ export function ApiKeySection({ view, onChange }: { view: SettingsView; onChange
             value={key}
             onChange={(e) => setKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && save()}
-            className="h-7 w-96 rounded-md border px-2"
-            style={{ background: "var(--field)", borderColor: "var(--border)", userSelect: "text" }}
+            className="field h-7 w-96 rounded-md px-2"
+            style={{ userSelect: "text" }}
           />
           <button
             type="button"
             onClick={save}
             disabled={!key.trim()}
-            className="h-7 rounded-md px-3 text-[12px] font-medium disabled:opacity-50"
-            style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
+            className="btn-primary h-7 rounded-md px-3 text-[12px]"
           >
             Save
           </button>
@@ -47,8 +46,7 @@ export function ApiKeySection({ view, onChange }: { view: SettingsView; onChange
             <button
               type="button"
               onClick={remove}
-              className="h-7 rounded-md border px-3 text-[12px]"
-              style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+              className="btn h-7 rounded-md px-3 text-[12px]"
             >
               Remove
             </button>

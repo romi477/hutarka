@@ -25,7 +25,7 @@ export function TargetMenu({ current, targets, onPick, onEditPrompts }: Props) {
             role="menuitemradio"
             aria-checked={on}
             onClick={() => onPick(lang)}
-            className="flex h-6 items-center gap-2 rounded px-2 text-left text-[13px] hover:bg-[var(--accent)] hover:text-white"
+            className="flex h-6 items-center gap-2 rounded px-2 text-left text-[13px] hover:bg-[var(--accent-soft)]"
           >
             <span className="w-3">{on ? "✓" : ""}</span>
             <span className="flex-1">→ {LANG_NAMES[lang]}</span>
@@ -38,7 +38,7 @@ export function TargetMenu({ current, targets, onPick, onEditPrompts }: Props) {
         type="button"
         role="menuitem"
         onClick={onEditPrompts}
-        className="flex h-6 items-center gap-2 rounded px-2 text-left text-[13px] hover:bg-[var(--accent)] hover:text-white"
+        className="flex h-6 items-center gap-2 rounded px-2 text-left text-[13px] hover:bg-[var(--accent-soft)]"
       >
         <span className="w-3" />
         <span className="flex-1">Edit prompts…</span>

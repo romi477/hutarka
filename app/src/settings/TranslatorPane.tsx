@@ -141,7 +141,7 @@ export function TranslatorPane({
                 className="rounded-md px-2.5 py-1.5 text-left"
                 style={
                   selected === item.id
-                    ? { background: "var(--accent)", color: "var(--accent-fg)", fontWeight: 500 }
+                    ? { background: "var(--accent-soft)", fontWeight: 500 }
                     : undefined
                 }
               >
@@ -183,16 +183,14 @@ export function TranslatorPane({
                     onClick={() =>
                       act(() => settings.setDefaultTarget(current.lang!), "Every lookup now starts here")
                     }
-                    className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
-                    style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+                    className="btn h-[26px] shrink-0 whitespace-nowrap rounded-md px-3 text-[12px]"
                   >
                     Make default
                   </button>
                   <button
                     type="button"
                     onClick={() => act(() => settings.removeTarget(current.lang!), "Removed")}
-                    className="h-[26px] shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
-                    style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+                    className="btn h-[26px] shrink-0 whitespace-nowrap rounded-md px-3 text-[12px]"
                   >
                     Delete
                   </button>
@@ -241,8 +239,8 @@ export function TranslatorPane({
               setSpec({ ...spec, system: e.target.value });
             }}
             onBlur={() => save(spec)}
-            className="min-h-0 flex-1 resize-none rounded-lg border px-3 py-2.5 font-mono text-[12px] leading-relaxed"
-            style={{ background: "var(--field)", borderColor: "var(--border)", userSelect: "text" }}
+            className="field min-h-0 flex-1 resize-none rounded-lg px-3 py-2.5 font-mono text-[12px] leading-relaxed"
+            style={{ userSelect: "text" }}
           />
           <div className="flex items-center gap-2">
             <span className="text-[12px]" style={{ color: "var(--muted)" }}>
@@ -261,8 +259,7 @@ export function TranslatorPane({
             <button
               type="button"
               onClick={reset}
-              className="h-7 shrink-0 whitespace-nowrap rounded-md border px-3 text-[12px]"
-              style={{ background: "var(--button)", borderColor: "var(--button-border)" }}
+              className="btn h-7 shrink-0 whitespace-nowrap rounded-md px-3 text-[12px]"
             >
               Reset to default
             </button>

@@ -12,12 +12,14 @@
   --chip: rgba(0, 0, 0, 0.06);
   --chip-strong: rgba(0, 0, 0, 0.12);
   --footer: rgba(0, 0, 0, 0.025);
-  --button: #ffffff;
   --button-border: rgba(0, 0, 0, 0.14);
-  --accent: #0a63d6;
-  --accent-fg: #ffffff;
+  /* The app's one color: a light cyan (Apple's system cyan). */
+  --accent: #0b9fd1;
+  --accent-soft: rgba(11, 159, 209, 0.14);
+  --accent-ring: rgba(11, 159, 209, 0.35);
   --sidebar: #f2f1f0;
-  --field: #fbfbfb;
+  --field: #ffffff;
+  --field-border: rgba(0, 0, 0, 0.24);
   --warn: #b25000;
   color-scheme: light dark;
 }
@@ -34,12 +36,63 @@
     --chip: rgba(255, 255, 255, 0.1);
     --chip-strong: rgba(255, 255, 255, 0.18);
     --footer: rgba(255, 255, 255, 0.03);
-    --button: rgba(255, 255, 255, 0.08);
     --button-border: rgba(255, 255, 255, 0.16);
     --sidebar: #2a2a2d;
-    --field: #252528;
+    --field: #1a1a1c;
+    --field-border: rgba(255, 255, 255, 0.26);
+    --accent: #64d2ff;
+    --accent-soft: rgba(100, 210, 255, 0.16);
+    --accent-ring: rgba(100, 210, 255, 0.4);
     --warn: #ff9f0a;
   }
+}
+
+/* Buttons are never filled, so they stay quiet; hover outlines them in cyan.
+   .btn has a border, .btn-primary is the same with cyan text, .btn-quiet has
+   no border until hovered. Unlayered, so these beat Tailwind utilities. */
+.btn,
+.btn-primary,
+.btn-quiet {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--button-border);
+  transition: border-color 0.12s, box-shadow 0.12s, color 0.12s;
+}
+.btn-primary {
+  color: var(--accent);
+  font-weight: 500;
+}
+.btn-quiet {
+  color: var(--muted);
+  border-color: transparent;
+}
+:is(.btn, .btn-primary, .btn-quiet):is(:hover, :focus-visible):not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-ring);
+  outline: none;
+}
+.btn-quiet:is(:hover, :focus-visible):not(:disabled) {
+  color: var(--fg);
+}
+:is(.btn, .btn-primary, .btn-quiet):disabled {
+  opacity: 0.45;
+}
+
+/* Text fields: brighter than the panel and outlined, so they read as inputs;
+   cyan ring while typing. */
+.field {
+  background: var(--field);
+  border: 1px solid var(--field-border);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
 }
 
 /* Text the user may select and copy (the rest of the UI is not selectable). */

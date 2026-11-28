@@ -90,8 +90,7 @@ export function SourceCell({
             rows={2}
             placeholder="Type or paste text to translate"
             onChange={(e) => onChange(e.target.value)}
-            className="selectable w-full resize-none rounded-md border px-2 py-1.5 text-[13px] leading-normal outline-none"
-            style={{ background: "var(--field)", borderColor: "var(--border)" }}
+            className="selectable field w-full resize-none rounded-md px-2 py-1.5 text-[13px] leading-normal"
           />
           <div className="flex items-center gap-2">
             <button
@@ -99,11 +98,10 @@ export function SourceCell({
               disabled={!text.trim()}
               onClick={onTranslate}
               title="Translate (⌘↵)"
-              className="flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[12px] font-medium disabled:opacity-50"
-              style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
+              className="btn-primary flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[12px]"
             >
               Translate
-              <span className="text-[11px] font-normal opacity-75">⌘↵</span>
+              <span className="text-[11px] font-normal opacity-70">⌘↵</span>
             </button>
             {error && (
               <span className="min-w-0 truncate text-[11px]" style={{ color: "var(--warn)" }}>
@@ -114,8 +112,7 @@ export function SourceCell({
             <button
               type="button"
               onClick={onClear}
-              className="flex h-6 shrink-0 items-center rounded-md px-2.5 text-[12px] hover:bg-[var(--chip)] disabled:opacity-50"
-              style={{ color: "var(--muted)" }}
+              className="btn-quiet flex h-6 shrink-0 items-center rounded-md px-2.5 text-[12px]"
             >
               Clear
             </button>

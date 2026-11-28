@@ -286,7 +286,6 @@ export function Popup() {
                     run(snap.to, !snap.explain)
                   }
                   className="m-0 h-3.5 w-3.5"
-                  style={{ accentColor: "var(--accent)" }}
                 />
                 Explain
               </label>
@@ -299,7 +298,6 @@ export function Popup() {
                   checked={pinned}
                   onChange={() => popup.pin(!pinned)}
                   className="m-0 h-3.5 w-3.5"
-                  style={{ accentColor: "var(--accent)" }}
                 />
                 Pin
               </label>
@@ -395,11 +393,7 @@ export function Popup() {
                 type="button"
                 disabled={!done}
                 onClick={() => popup.copy()}
-                className="flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] disabled:opacity-50"
-                style={{
-                  background: "var(--button)",
-                  borderColor: "var(--button-border)",
-                }}
+                className="btn flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px]"
               >
                 Copy{" "}
                 <span className="text-[11px]" style={{ color: "var(--muted)" }}>
@@ -411,13 +405,9 @@ export function Popup() {
                   type="button"
                   disabled={!done}
                   onClick={() => popup.replace()}
-                  className="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium disabled:opacity-50"
-                  style={{
-                    background: "var(--accent)",
-                    color: "var(--accent-fg)",
-                  }}
+                  className="btn-primary flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px]"
                 >
-                  Replace <span className="text-[11px] opacity-80">↵</span>
+                  Replace <span className="text-[11px] font-normal opacity-70">↵</span>
                 </button>
               )}
               <span className="flex-1" />
@@ -425,8 +415,7 @@ export function Popup() {
               <button
                 type="button"
                 onClick={() => popup.close()}
-                className="h-7 rounded-md px-2.5 text-[12px] hover:bg-[var(--chip)]"
-                style={{ color: "var(--muted)" }}
+                className="btn-quiet h-7 rounded-md px-2.5 text-[12px]"
               >
                 Close
               </button>
@@ -506,8 +495,7 @@ function ErrorBody({ snap }: { snap: Snapshot }) {
           <button
             type="button"
             onClick={action.run}
-            className="flex h-7 items-center rounded-md px-3 text-[12px] font-medium"
-            style={{ background: "var(--accent)", color: "var(--accent-fg)" }}
+            className="btn-primary flex h-7 items-center rounded-md px-3 text-[12px]"
           >
             {action.label}
           </button>
