@@ -57,6 +57,8 @@ pub struct Snapshot {
     /// The text came from a selection (Replace can paste over it), not typed
     /// into the popup.
     pub from_selection: bool,
+    /// Set when the answer could not be written to the lookup journal.
+    pub journal_error: String,
 }
 
 pub struct AppState {
@@ -167,9 +169,16 @@ impl AppState {
 pub fn trigger(app: &AppHandle) {
     let app = app.clone();
     // Reading the selection sleeps and sends keys: keep it off the main thread.
+    // The press takes its id now: a slower read of an earlier press (⌘C
+    // round trip) finishing later must not replace this one.
+    let press = app.state::<AppState>().sessions.begin();
     thread::spawn(move || {
         let selection = read_selection(&app);
         let state = app.state::<AppState>();
+        if !state.sessions.is_current(press) {
+            log::info!("hotkey press {press} superseded while reading the selection");
+            return;
+        }
         let settings = state.settings();
         match selection {
             Err(SelectionError::NotTrusted) => {
@@ -217,6 +226,7 @@ fn fresh(id: u64, settings: &Settings, to: Lang, status: Status) -> Snapshot {
         error_kind: None,
         error: String::new(),
         from_selection: false,
+        journal_error: String::new(),
     }
 }
 
@@ -309,26 +319,32 @@ pub fn start(app: &AppHandle, text: String, to: Lang, kind: Kind, from_selection
         match outcome {
             Ok(result) => {
                 log::info!("lookup {id}: done in {ms} ms");
-                state.update(&handle, id, |s| {
-                    s.status = Status::Done;
-                    s.result = result.clone();
-                    s.ms = ms;
-                });
+                // Written before the popup says Done, so it can say when the
+                // answer did not reach the journal.
                 let record = LookupRecord {
                     ts: chrono::Local::now().to_rfc3339(),
                     kind: "lookup",
                     mode: kind,
                     to,
                     text,
-                    result,
+                    result: result.clone(),
                     model: req.model.clone(),
                     ms,
                 };
-                if let Err(e) =
+                let journal_error =
                     append_lookup(&journal_root(), &record, chrono::Local::now().date_naive())
-                {
-                    log::error!("cannot write the lookup journal: {e}");
-                }
+                        .err()
+                        .map(|e| {
+                            log::error!("cannot write the lookup journal: {e}");
+                            format!("Not saved to history: {e}")
+                        })
+                        .unwrap_or_default();
+                state.update(&handle, id, |s| {
+                    s.status = Status::Done;
+                    s.result = result;
+                    s.ms = ms;
+                    s.journal_error = journal_error;
+                });
             }
             Err(e) => {
                 log::warn!("lookup {id}: failed after {ms} ms: {e}");
@@ -414,6 +430,7 @@ fn cleared(snap: &Snapshot, id: u64) -> Snapshot {
         error_kind: None,
         error: String::new(),
         from_selection: false,
+        journal_error: String::new(),
     }
 }
 

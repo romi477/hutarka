@@ -35,6 +35,8 @@ export interface Snapshot {
   error_kind: ErrorKind | null;
   error: string;
   from_selection: boolean;
+  /** Set when the answer could not be written to the history journal. */
+  journal_error: string;
 }
 
 export const popup = {

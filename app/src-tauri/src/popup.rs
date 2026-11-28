@@ -222,16 +222,20 @@ pub fn resize(app: &AppHandle, height: f64, width: f64) {
 }
 
 /// Sizes the window (capped by the monitor) and positions it with
-/// [`origin`].
+/// [`origin`]. The anchor lock is never held across a window call: those wait
+/// for the main thread, which may itself be waiting for the lock (a resize
+/// from the page while the hotkey shows the popup).
 fn place(app: &AppHandle, height: f64, width: f64) {
     let Some(window) = app.get_webview_window(LABEL) else {
         return;
     };
     let anchor = app.state::<Anchor>();
-    let Ok(mut placed) = anchor.0.lock() else {
-        return;
-    };
-    let Some(mouse) = placed.mouse else {
+    let Some((mouse, dragged, kept)) = anchor
+        .0
+        .lock()
+        .ok()
+        .and_then(|p| Some((p.mouse?, p.dragged, p.side)))
+    else {
         return;
     };
     let monitor = app
@@ -253,9 +257,9 @@ fn place(app: &AppHandle, height: f64, width: f64) {
     let height = height.min(work.size.height as f64 / scale);
     let width = width.min(work.size.width as f64 / scale);
     let current = window.outer_position().ok();
-    let side = match (placed.dragged, current) {
+    let side = match (dragged, current) {
         (true, Some(now)) => Side::Dropped(now.x as f64, now.y as f64),
-        _ => placed.side,
+        _ => kept,
     };
     let ((x, y), side) = origin(
         (mouse.x, mouse.y),
@@ -270,7 +274,12 @@ fn place(app: &AppHandle, height: f64, width: f64) {
     };
     let _ = window.set_size(Size::Logical(LogicalSize { width, height }));
     let _ = window.set_position(Position::Physical(pos));
-    placed.side = side;
+    // Kept only if the popup was not reopened at another mouse meanwhile.
+    if let Ok(mut placed) = anchor.0.lock()
+        && placed.mouse == Some(mouse)
+    {
+        placed.side = side;
+    }
 }
 
 #[cfg(test)]

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 
-const MAX_CHARS = 20_000;
 const MAX_FIELD_HEIGHT = 180;
 
 interface Props {
@@ -38,6 +37,8 @@ function Chevron({ open }: { open: boolean }) {
 /**
  * The text being translated. Collapsed: one dimmed line. Open: an editable
  * field; ⌘↵ or Translate sends what is in it, Clear empties it and the answer.
+ * No length limit here: the whole draft is kept, and text over the limit
+ * gets the backend's error when it is sent.
  */
 export function SourceCell({
   text,
@@ -86,7 +87,6 @@ export function SourceCell({
           <textarea
             ref={field}
             value={text}
-            maxLength={MAX_CHARS}
             rows={2}
             placeholder="Type or paste text to translate"
             onChange={(e) => onChange(e.target.value)}

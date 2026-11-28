@@ -34,7 +34,6 @@ Today this takes two tools running side by side: a dictation app for hotkey spee
 - Microphone and system audio captured separately, no bot joins the call.
 - Live transcript while the meeting runs, with a better pass saved afterwards.
 - Dictation works while a meeting is being recorded. Dictated speech can be kept out of the meeting transcript or marked as dictation.
-- Calendar-aware titles and attendees.
 
 **MCP server (local, read-only to start with)**
 - List meetings, get a transcript, search across meetings.
@@ -52,7 +51,6 @@ macOS on Apple Silicon only, at first (system audio capture relies on Core Audio
 
 ## Open questions
 
-- **Base**: fork an existing Electron-based app and strip it down, or build a native Swift app and reuse only the small native helpers.
 - **Latency**: dictation must not wait behind meeting transcription. This needs a priority queue or a separate model instance, and has to be measured on a real call.
 - **Live MCP**: polling (`get lines since ...`) first; push notifications later if clients support them.
 - **Dictation vs. meeting transcript**: keep dictated speech out of the transcript, mark it, or make it a setting.

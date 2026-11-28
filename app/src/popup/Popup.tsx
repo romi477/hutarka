@@ -79,6 +79,12 @@ export function Popup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lookupId]);
 
+  // A failed request: show the original, to edit and translate again.
+  const failedRequest = snap?.status === "error" && snap.error_kind === "api" && snap.text !== "";
+  useEffect(() => {
+    if (failedRequest) setOpen(true);
+  }, [failedRequest, lookupId]);
+
   // Pinned: the popup stays open when it loses focus and follows across Spaces.
   const [pinned, setPinned] = useState(false);
   useEffect(() => {
@@ -219,7 +225,7 @@ export function Popup() {
           backdropFilter: "blur(20px)",
         }}
       >
-        {snap.status === "error" ? (
+        {snap.status === "error" && !failedRequest ? (
           <ErrorBody snap={snap} />
         ) : (
           <>
@@ -375,6 +381,20 @@ export function Popup() {
                 popup.clear();
               }}
             />
+            {failedRequest && (
+              <div className="flex items-start gap-2 px-4 pt-2 pb-3">
+                <span className="selectable min-w-0 flex-1 leading-snug" style={{ color: "var(--warn)" }}>
+                  {ERROR_TITLES.api}: {snap.error}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => run(snap.to, snap.explain)}
+                  className="btn-primary flex h-6 shrink-0 items-center rounded-md px-2.5 text-[12px]"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
             {hasAnswer && (
               <div
                 ref={answer}
@@ -417,9 +437,13 @@ export function Popup() {
                   Replace <span className="text-[11px] font-normal opacity-70">↵</span>
                 </button>
               )}
-              {notice && (
-                <span className="min-w-0 truncate text-[11px]" style={{ color: "var(--warn)" }} title={notice}>
-                  {notice}
+              {(notice || snap.journal_error) && (
+                <span
+                  className="min-w-0 truncate text-[11px]"
+                  style={{ color: "var(--warn)" }}
+                  title={notice || snap.journal_error}
+                >
+                  {notice || snap.journal_error}
                 </span>
               )}
               <span className="flex-1" />

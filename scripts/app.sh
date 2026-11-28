@@ -61,13 +61,28 @@ stop_running() {
     done
 }
 
+# The new copy is prepared and checked next to the destination first; the
+# installed app is swapped out only once the copy is known good.
 install_app() {
     build
-    assert_ours "$DEST"
-    stop_running
     mkdir -p "$(dirname "$DEST")"
-    rm -rf "$DEST"
-    cp -R "$BUNDLE" "$DEST"
+    [ "$(cd "$(dirname "$DEST")" && pwd -P)/$(basename "$DEST")" != "$(cd "$(dirname "$BUNDLE")" && pwd -P)/$(basename "$BUNDLE")" ] \
+        || die "APP_DEST is the build output itself ($BUNDLE). Refusing to replace it."
+    assert_ours "$DEST"
+    NEW="$DEST.new"
+    OLD="$DEST.old"
+    assert_ours "$NEW"
+    assert_ours "$OLD"
+    rm -rf "$NEW" "$OLD"
+    cp -R "$BUNDLE" "$NEW" || { rm -rf "$NEW"; die "cannot copy the app to $NEW; the installed app is untouched"; }
+    codesign --verify --strict "$NEW" || { rm -rf "$NEW"; die "the copied app's signature does not verify; the installed app is untouched"; }
+    stop_running
+    [ -e "$DEST" ] && mv "$DEST" "$OLD"
+    if ! mv "$NEW" "$DEST"; then
+        [ -e "$OLD" ] && mv "$OLD" "$DEST"
+        die "cannot move the new app into place; the old one is back"
+    fi
+    rm -rf "$OLD"
     echo
     echo "installed: $DEST"
     if [ "${NO_LAUNCH:-}" != "1" ]; then

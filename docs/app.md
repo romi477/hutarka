@@ -55,6 +55,8 @@ Select text, press **⌃⌥T** (or menu bar › Translate).
 - **Spaces.** The popup opens on the Space you are on and stays there. Switching to another Space closes it, like a click outside.
 - **Pin** (checkbox in the header, ⌘P) keeps the popup open: a click elsewhere or another Space does not close it, it shows on every Space, Copy and Settings leave it open, and the hotkey translates in it where it is. Esc, Close, × or Replace close it and unpin it.
 - **Esc**, the Close button at the bottom right, or a click outside closes the popup.
+- **When the request fails** (network, API error), the popup keeps the original open with the error under it: edit the text if needed and press **Retry** or ⌘↵.
+- **History.** Every finished answer is added to `~/Hutarka/lookups/<date>.jsonl`. If that cannot be written (full disk, folder not writable), the popup says "Not saved to history" next to the buttons; the answer can still be copied.
 
 Popup keys:
 

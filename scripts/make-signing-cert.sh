@@ -9,9 +9,16 @@ set -eu
 NAME="Hutarka Local"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
-if security find-certificate -c "$NAME" "$KEYCHAIN" >/dev/null 2>&1; then
-    echo "A certificate named \"$NAME\" already exists. Nothing to do."
+# The same check as scripts/app.sh: a certificate that can sign (its private
+# key is there and it is trusted for code signing).
+if security find-identity -v -p codesigning | grep -q "\"$NAME\""; then
+    echo "\"$NAME\" can already sign code. Nothing to do."
     exit 0
+fi
+if security find-certificate -c "$NAME" "$KEYCHAIN" >/dev/null 2>&1; then
+    echo "A certificate named \"$NAME\" exists but cannot sign code (no private key, or not trusted)." >&2
+    echo "Open Keychain Access, delete every \"$NAME\" certificate and key, then run this script again." >&2
+    exit 1
 fi
 
 TMP=$(mktemp -d)
