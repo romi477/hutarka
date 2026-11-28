@@ -134,7 +134,7 @@ export function TranslatorPane({
             <div key={item.id} className="flex flex-col">
               {(i === 0 || items[i - 1].group !== item.group) && (
                 <span
-                  className="px-2.5 pt-3 pb-1 text-[11px] font-semibold tracking-wide uppercase first:pt-0"
+                  className={`px-2.5 pb-1 text-[11px] font-semibold tracking-wide uppercase ${i === 0 ? "" : "pt-6"}`}
                   style={{ color: "var(--muted)" }}
                 >
                   {item.group}
@@ -160,7 +160,7 @@ export function TranslatorPane({
                   aria-label="Add language"
                   value=""
                   onChange={(e) => e.target.value && add(e.target.value as Lang)}
-                  className="mt-1 h-[26px] rounded-md border px-1.5 text-[12px]"
+                  className="mt-1.5 h-[26px] rounded-md border px-1.5 text-[12px]"
                   style={{ background: "var(--field)", borderColor: "var(--border)" }}
                 >
                   <option value="">Add language…</option>
