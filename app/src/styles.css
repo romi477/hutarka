@@ -79,7 +79,7 @@
 }
 
 /* Text fields: brighter than the panel and outlined, so they read as inputs;
-   cyan ring while typing. */
+   thin cyan border while typing. */
 .field {
   background: var(--field);
   border: 1px solid var(--field-border);
@@ -88,7 +88,6 @@
 }
 .field:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 input[type="checkbox"] {
