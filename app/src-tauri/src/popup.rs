@@ -14,8 +14,10 @@ use tauri_nspanel::{
 };
 
 pub const LABEL: &str = "popup";
-/// Window width: the 520 pt card plus room for its shadow (2 × 20).
+/// Window width when it opens: the 520 pt card plus room for its shadow
+/// (2 × 20). The page asks for a wider window for long text.
 const WIDTH: f64 = 560.0;
+const MIN_WIDTH: f64 = 360.0;
 const INITIAL_HEIGHT: f64 = 200.0;
 const MIN_HEIGHT: f64 = 60.0;
 /// Gap between the mouse and the popup's top-left corner, in points.
@@ -111,8 +113,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .style_mask(StyleMask::empty().borderless().nonactivating_panel())
         .with_window(|w| w.decorations(false).transparent(true))
         .collection_behavior(
+            // Opens on the Space you are on and stays there; switching
+            // Spaces makes it lose the keyboard, which closes it.
             CollectionBehavior::new()
-                .can_join_all_spaces()
+                .move_to_active_space()
                 .full_screen_auxiliary(),
         )
         .build()?;
@@ -136,7 +140,7 @@ pub fn show_near_cursor(app: &AppHandle) {
             side: Side::Fresh,
         };
     }
-    place(app, INITIAL_HEIGHT);
+    place(app, INITIAL_HEIGHT, WIDTH);
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Ok(panel) = handle.get_webview_panel(LABEL) {
@@ -164,14 +168,14 @@ pub fn mark_dragged(app: &AppHandle) {
     }
 }
 
-/// New content height from the page: resize, keep the popup on screen.
-pub fn resize(app: &AppHandle, height: f64) {
-    place(app, height.max(MIN_HEIGHT));
+/// New content size from the page: resize, keep the popup on screen.
+pub fn resize(app: &AppHandle, height: f64, width: f64) {
+    place(app, height.max(MIN_HEIGHT), width.max(MIN_WIDTH));
 }
 
-/// Sizes the window (height capped by the monitor) and positions it with
+/// Sizes the window (capped by the monitor) and positions it with
 /// [`origin`].
-fn place(app: &AppHandle, height: f64) {
+fn place(app: &AppHandle, height: f64, width: f64) {
     let Some(window) = app.get_webview_window(LABEL) else {
         return;
     };
@@ -199,6 +203,7 @@ fn place(app: &AppHandle, height: f64) {
         bottom: work.position.y as f64 + work.size.height as f64,
     };
     let height = height.min(work.size.height as f64 / scale);
+    let width = width.min(work.size.width as f64 / scale);
     let current = window.outer_position().ok();
     let side = match (placed.dragged, current) {
         (true, Some(now)) => Side::Dropped(now.x as f64, now.y as f64),
@@ -207,7 +212,7 @@ fn place(app: &AppHandle, height: f64) {
     let ((x, y), side) = origin(
         (mouse.x, mouse.y),
         side,
-        (WIDTH * scale, height * scale),
+        (width * scale, height * scale),
         OFFSET * scale,
         area,
     );
@@ -215,10 +220,7 @@ fn place(app: &AppHandle, height: f64) {
         x: x.round() as i32,
         y: y.round() as i32,
     };
-    let _ = window.set_size(Size::Logical(LogicalSize {
-        width: WIDTH,
-        height,
-    }));
+    let _ = window.set_size(Size::Logical(LogicalSize { width, height }));
     let _ = window.set_position(Position::Physical(pos));
     placed.side = side;
 }

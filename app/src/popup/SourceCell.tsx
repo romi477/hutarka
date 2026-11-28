@@ -64,7 +64,7 @@ export function SourceCell({
   }, [open, focus]);
 
   return (
-    <div className="mx-3 mt-2 rounded-lg border" style={{ borderColor: "var(--line)" }}>
+    <div className="mx-3 mt-2 shrink-0 rounded-lg border" style={{ borderColor: "var(--line)" }}>
       <button
         type="button"
         aria-expanded={open}

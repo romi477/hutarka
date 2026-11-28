@@ -51,7 +51,8 @@ Select text, press **⌃⌥T** (or menu bar › Translate).
 - **Explain** (checkbox in the header, ⌘E) gives a deeper answer instead. For a word or phrase: the translation, the meaning, five common sentences with translations, and a note on typical mistakes. For a sentence: its translation, then the idioms, phrasal verbs and grammar worth learning in it, with examples. The checkbox state is remembered.
 - **Copy** (⌘C) copies the answer and closes the popup. If you selected part of the answer in the popup, ⌘C copies only that part and the popup stays open. Select with the mouse, or ⌘A for the whole answer. In the original field ⌘C, ⌘X, ⌘V, ⌘A and ⌘Z work as usual.
 - **Replace** (↵) closes the popup and pastes the answer over the original selection, for editable fields. Whatever was on your clipboard (text, images, files) comes back afterwards. Not shown for typed text.
-- **Move** the popup by dragging its header. It grows with the answer up to the screen's height; only a longer answer scrolls.
+- **Move** the popup by dragging its header. It grows with the answer up to the screen's height; then only the answer scrolls, and the header, the original and the buttons stay on screen. Long text (original and answer together over about 1,200 characters) opens a wider popup.
+- **Spaces.** The popup opens on the Space you are on and stays there. Switching to another Space closes it, like a click outside.
 - **Esc**, the Close button at the bottom right, or a click outside closes the popup.
 
 Popup keys:

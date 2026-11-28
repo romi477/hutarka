@@ -10,11 +10,14 @@ import { TargetMenu } from "./TargetMenu";
 import { SourceCell } from "./SourceCell";
 import { handleEditKey } from "./editKeys";
 
-/** Room around the card for its shadow; matches the window width (560 = 520 + 2 × 20). */
+/** Room around the card for its shadow (window 560 = card 520 + 2 × 20). */
 const MARGIN = 20;
+/** Window widths: normal, and for long text so it needs less scrolling. */
+const WIDTH = 560;
+const WIDE_WIDTH = 820;
+/** Original plus answer longer than this opens the wide window. */
+const WIDE_FROM_CHARS = 1200;
 const MENU_HEIGHT = 170;
-/** Header, footer and margins around the answer, so the window fits the screen. */
-const CHROME_HEIGHT = 140;
 
 const ERROR_TITLES: Record<string, string> = {
   no_key: "No Anthropic API key",
@@ -83,6 +86,9 @@ export function Popup() {
     };
   }, []);
 
+  const width =
+    snap && snap.text.length + snap.result.length > WIDE_FROM_CHARS ? WIDE_WIDTH : WIDTH;
+
   // The window follows the card's height. The card exists only once the first
   // snapshot arrived, so the observer is attached then (not on mount).
   const hasSnap = snap !== null;
@@ -90,12 +96,12 @@ export function Popup() {
     const el = wrapper.current;
     if (!el) return;
     const send = () =>
-      popup.resize(Math.ceil(el.offsetHeight + (menu ? MENU_HEIGHT : 0)));
+      popup.resize(Math.ceil(el.offsetHeight + (menu ? MENU_HEIGHT : 0)), width);
     send();
     const observer = new ResizeObserver(send);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [menu, hasSnap]);
+  }, [menu, hasSnap, width]);
 
   /**
    * Runs the lookup again into `to`: the edited source text if it changed,
@@ -184,6 +190,9 @@ export function Popup() {
       <div
         className="relative flex flex-col rounded-xl border"
         style={{
+          // Never taller than the screen: only the answer scrolls, so the
+          // header, the original and the buttons stay reachable.
+          maxHeight: window.screen.availHeight - 2 * MARGIN,
           background: "var(--bg)",
           borderColor: "var(--border)",
           boxShadow: "0 12px 32px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.10)",
@@ -205,7 +214,7 @@ export function Popup() {
                 )
                   popup.dragged();
               }}
-              className="flex cursor-grab items-center gap-2 pt-2.5 pr-2.5 pl-3.5"
+              className="flex shrink-0 cursor-grab items-center gap-2 pt-2.5 pr-2.5 pl-3.5"
             >
               {showsWord && (
                 <span
@@ -338,8 +347,7 @@ export function Popup() {
             {hasAnswer && (
               <div
                 ref={answer}
-                className="selectable overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
-                style={{ maxHeight: window.screen.availHeight - CHROME_HEIGHT }}
+                className="selectable min-h-0 overflow-y-auto px-4 pt-2 pb-3.5 text-[14px] leading-normal whitespace-pre-wrap"
               >
                 <Formatted text={snap.result} />
                 {streaming && (
@@ -351,7 +359,7 @@ export function Popup() {
               </div>
             )}
             <div
-              className="flex items-center gap-1.5 rounded-b-xl border-t px-2.5 py-2"
+              className="flex shrink-0 items-center gap-1.5 rounded-b-xl border-t px-2.5 py-2"
               style={{
                 borderColor: "var(--line)",
                 background: "var(--footer)",

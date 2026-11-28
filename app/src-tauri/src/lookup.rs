@@ -500,8 +500,8 @@ pub fn popup_dragged(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn resize_popup(app: AppHandle, height: f64) {
-    popup::resize(&app, height);
+pub fn resize_popup(app: AppHandle, height: f64, width: f64) {
+    popup::resize(&app, height, width);
 }
 
 #[tauri::command]
