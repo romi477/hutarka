@@ -44,10 +44,11 @@ async fn main() -> ExitCode {
             } else {
                 ""
             };
-            if write!(out, "{answer}{newline}")
-                .and_then(|_| out.flush())
-                .is_err()
-            {
+            if let Err(e) = write!(out, "{answer}{newline}").and_then(|_| out.flush()) {
+                // A closed pipe (`| head`) is normal; anything else (full disk) is said.
+                if e.kind() != std::io::ErrorKind::BrokenPipe {
+                    eprintln!("hutarka: cannot write the answer: {e}");
+                }
                 return ExitCode::from(1);
             }
             ExitCode::SUCCESS

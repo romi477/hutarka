@@ -7,6 +7,10 @@ use serde_json::Value;
 pub enum SseEvent {
     TextDelta(String),
     Stop(Option<String>),
+    /// The last event of an answer.
+    MessageStop,
+    /// An `error` event, or an event whose data is not valid JSON (a piece
+    /// of the answer may be lost, so the answer must not count as whole).
     Error(String),
     Other,
 }
@@ -37,8 +41,12 @@ fn parse_block(block: &str) -> SseEvent {
         .filter_map(|line| line.strip_prefix("data:"))
         .map(|d| d.strip_prefix(' ').unwrap_or(d))
         .collect();
-    let Ok(json) = serde_json::from_str::<Value>(&data.join("\n")) else {
+    // No data lines: a comment (keep-alive) or an empty block.
+    if data.is_empty() {
         return SseEvent::Other;
+    }
+    let Ok(json) = serde_json::from_str::<Value>(&data.join("\n")) else {
+        return SseEvent::Error("malformed event in the answer stream".into());
     };
     match json.get("type").and_then(Value::as_str) {
         Some("content_block_delta") => match json.pointer("/delta/text").and_then(Value::as_str) {
@@ -52,6 +60,7 @@ fn parse_block(block: &str) -> SseEvent {
                 .and_then(Value::as_str)
                 .map(str::to_string),
         ),
+        Some("message_stop") => SseEvent::MessageStop,
         Some("error") => SseEvent::Error(
             json.pointer("/error/message")
                 .and_then(Value::as_str)

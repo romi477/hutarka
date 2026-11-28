@@ -146,3 +146,26 @@ async fn plain_text_error_body_is_collapsed_and_capped() {
         other => panic!("{other:?}"),
     }
 }
+
+#[tokio::test]
+async fn redirect_is_not_followed_so_the_key_stays_home() {
+    let api = MockServer::start().await;
+    let elsewhere = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .respond_with(
+            ResponseTemplate::new(307)
+                .insert_header("location", format!("{}/v1/messages", elsewhere.uri())),
+        )
+        .mount(&api)
+        .await;
+    Mock::given(method("POST"))
+        .respond_with(answer("stolen"))
+        .expect(0)
+        .mount(&elsewhere)
+        .await;
+    match client(&api).complete(&Request::new("m", "s", "t")).await {
+        Err(Error::Api { status, .. }) => assert_eq!(status, 307),
+        other => panic!("expected the 307 as an API error, got {other:?}"),
+    }
+}

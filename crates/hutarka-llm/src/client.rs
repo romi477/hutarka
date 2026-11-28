@@ -21,9 +21,12 @@ pub struct Client {
 }
 
 impl Client {
-    /// Connect timeout 10 s, whole request 120 s.
+    /// Connect timeout 10 s, whole request 120 s. Redirects are not followed:
+    /// reqwest would resend `x-api-key` (and the text) to whatever host a
+    /// redirect names, and the API never redirects.
     pub fn new(api_key: String, base_url: String) -> Result<Self, Error> {
         let http = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(120))
             .build()
@@ -102,7 +105,8 @@ impl Client {
         let mut text = String::new();
         let mut stop: Option<String> = None;
         let mut bytes = response.bytes_stream();
-        while let Some(chunk) = bytes.next().await {
+        // Ends at `message_stop`, without waiting for the server to close.
+        'read: while let Some(chunk) = bytes.next().await {
             for event in parser.push(&chunk.map_err(network_error)?) {
                 match event {
                     SseEvent::TextDelta(piece) => {
@@ -111,6 +115,7 @@ impl Client {
                     }
                     SseEvent::Stop(reason) => stop = reason.or(stop),
                     SseEvent::Error(message) => return Err(Error::Stream(message)),
+                    SseEvent::MessageStop => break 'read,
                     SseEvent::Other => {}
                 }
             }

@@ -24,11 +24,13 @@ cargo uninstall hutarka-cli
 
 ## API key
 
-`hutarka` reads the key from the `HUTARKA_API_KEY` environment variable. Add it to your shell profile so every new terminal has it:
+`hutarka` reads the key from the `HUTARKA_API_KEY` environment variable. Add it to your shell profile so every new terminal has it: open `~/.zshrc` in an editor and add the line
 
-```bash
-echo 'export HUTARKA_API_KEY="sk-ant-..."' >> ~/.zshrc
 ```
+export HUTARKA_API_KEY="sk-ant-..."
+```
+
+Type the key in the editor, not in a shell command: a command with the key in it would be saved in shell history.
 
 There is deliberately no `--key` flag: a key on the command line would end up in shell history and in the process list. Leading and trailing whitespace in the variable is ignored.
 

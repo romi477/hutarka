@@ -135,3 +135,72 @@ async fn stream_without_stop_is_stopped() {
         .await;
     assert_eq!(run(&server).await.0, Err(Error::Stopped("none".into())));
 }
+
+#[tokio::test]
+async fn malformed_event_fails_the_answer() {
+    let server = MockServer::start().await;
+    let body = [
+        delta("Hello "),
+        "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"te\n\n".to_string(),
+        stop("end_turn"),
+    ]
+    .concat();
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .respond_with(sse(body))
+        .mount(&server)
+        .await;
+    let (result, _) = run(&server).await;
+    assert!(matches!(result, Err(Error::Stream(_))), "{result:?}");
+}
+
+#[tokio::test]
+async fn keepalive_comment_is_ignored() {
+    let server = MockServer::start().await;
+    let body = [
+        ": keepalive\n\n".to_string(),
+        delta("ok"),
+        stop("end_turn"),
+    ]
+    .concat();
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .respond_with(sse(body))
+        .mount(&server)
+        .await;
+    let (result, _) = run(&server).await;
+    assert_eq!(result.expect("answer"), "ok");
+}
+
+/// A server that sends a whole answer and then keeps the connection open.
+#[tokio::test]
+async fn answer_ends_at_message_stop_without_waiting_for_close() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    tokio::spawn(async move {
+        let (mut sock, _) = listener.accept().await.expect("accept");
+        let mut buf = [0u8; 8192];
+        let _ = sock.read(&mut buf).await;
+        let body = [
+            delta("done"),
+            stop("end_turn"),
+            event("message_stop", json!({"type": "message_stop"})),
+        ]
+        .concat();
+        let head = "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ntransfer-encoding: chunked\r\n\r\n";
+        let chunk = format!("{:x}\r\n{body}\r\n", body.len());
+        sock.write_all(head.as_bytes()).await.expect("head");
+        sock.write_all(chunk.as_bytes()).await.expect("chunk");
+        // Never sends the final chunk.
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+    });
+    let client = Client::new("k".into(), format!("http://{addr}")).expect("client");
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        client.stream(&Request::new("m", "s", "t"), |_| {}),
+    )
+    .await
+    .expect("returned before the connection closed");
+    assert_eq!(result.expect("answer"), "done");
+}
