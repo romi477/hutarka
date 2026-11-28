@@ -354,7 +354,23 @@ fn from_stored(stored: Value) -> (Settings, Vec<String>) {
     take(obj.get("api_key"), "api_key", &mut s.api_key, &mut bad);
     take(obj.get("hotkey"), "hotkey", &mut s.hotkey, &mut bad);
     take(obj.get("explain"), "explain", &mut s.explain, &mut bad);
-    take(obj.get("targets"), "targets", &mut s.targets, &mut bad);
+    match obj.get("targets") {
+        None => {}
+        Some(Value::Array(cards)) => {
+            s.targets = cards
+                .iter()
+                .enumerate()
+                .filter_map(|(i, card)| {
+                    let parsed = stored_target(card);
+                    if parsed.is_none() {
+                        bad.push(format!("targets[{i}]"));
+                    }
+                    parsed
+                })
+                .collect();
+        }
+        Some(_) => bad.push("targets".into()),
+    }
     s.targets = normalize(std::mem::take(&mut s.targets));
     match obj.get("prompts") {
         None => {}
@@ -375,6 +391,24 @@ fn from_stored(stored: Value) -> (Settings, Vec<String>) {
         Some(_) => bad.push("prompts".into()),
     }
     (s, bad)
+}
+
+/// One stored card; a card without a prompt gets the shipped one, so a
+/// broken card costs only itself.
+fn stored_target(card: &Value) -> Option<Target> {
+    #[derive(Deserialize)]
+    struct Stored {
+        lang: Lang,
+        #[serde(default)]
+        default: bool,
+        prompt: Option<PromptSpec>,
+    }
+    let c: Stored = serde_json::from_value(card.clone()).ok()?;
+    Some(Target {
+        lang: c.lang,
+        default: c.default,
+        prompt: c.prompt.unwrap_or_else(|| translate_default(c.lang)),
+    })
 }
 
 pub fn save(app: &AppHandle, settings: &Settings) -> Result<(), String> {
@@ -498,6 +532,27 @@ mod tests {
         let (s, bad) = from_stored(stored);
         assert!(bad.is_empty());
         assert_eq!(langs(&s.targets), vec![(Lang::De, true)]);
+    }
+
+    #[test]
+    fn one_bad_card_keeps_the_other_cards() {
+        let mut ru = card(Lang::Ru, false);
+        ru.prompt.system = "my Russian prompt".into();
+        let mut stored = serde_json::to_value(defaults()).expect("value");
+        stored["targets"] = json!([
+            card(Lang::En, true),
+            {"lang": "xx", "default": false, "prompt": defaults().prompts.word},
+            ru,
+            {"lang": "de", "default": false},
+        ]);
+        let (s, bad) = from_stored(stored);
+        assert_eq!(bad, vec!["targets[1]".to_string()]);
+        assert_eq!(
+            langs(&s.targets),
+            vec![(Lang::En, true), (Lang::Ru, false), (Lang::De, false)]
+        );
+        assert_eq!(s.targets[1].prompt.system, "my Russian prompt");
+        assert_eq!(s.targets[2].prompt, translate_default(Lang::De));
     }
 
     #[test]

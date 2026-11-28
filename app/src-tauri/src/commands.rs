@@ -64,8 +64,10 @@ fn change_settings(
         .map_err(|_| "settings lock poisoned".to_string())?;
     let mut next = settings.clone();
     change(&mut next)?;
+    // Saved first: a failed save leaves the settings as they were.
+    crate::settings::save(app, &next)?;
     *settings = next;
-    crate::settings::save(app, &settings)
+    Ok(())
 }
 
 /// Switches the translator hotkey. On a bad or taken shortcut the old one

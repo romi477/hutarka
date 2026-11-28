@@ -33,16 +33,24 @@ function itemsOf(view: SettingsView): Item[] {
   ];
 }
 
-function specOf(view: SettingsView, id: PromptId): PromptSpec {
+/** The prompt of `id`; undefined for a card not in `view` (yet, or any more). */
+function specOf(view: SettingsView, id: PromptId): PromptSpec | undefined {
   if (id === "word") return view.prompts.word;
   if (id === "explain") return view.prompts.explain;
   const lang = id.slice("translate:".length);
-  return (view.targets.find((t) => t.lang === lang) ?? view.targets[0]).prompt;
+  return view.targets.find((t) => t.lang === lang)?.prompt;
 }
 
-export function TranslatorPane({ view, onChange }: { view: SettingsView; onChange: () => void }) {
+export function TranslatorPane({
+  view,
+  onChange,
+}: {
+  view: SettingsView;
+  /** Re-reads the settings; resolves once `view` is fresh. */
+  onChange: () => Promise<unknown>;
+}) {
   const [selected, setSelected] = useState<PromptId>("explain");
-  const [spec, setSpec] = useState<PromptSpec>(specOf(view, "explain"));
+  const [spec, setSpec] = useState<PromptSpec>(view.prompts.explain);
   const [status, setStatus] = useState("");
 
   const items = itemsOf(view);
@@ -50,7 +58,10 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
   const unused = view.languages.filter((l) => !view.targets.some((t) => t.lang === l));
 
   // Load the selected prompt; keep unsaved edits of the open one on reloads.
-  useEffect(() => setSpec(specOf(view, selected)), [selected]);
+  useEffect(() => {
+    const next = specOf(view, selected);
+    if (next) setSpec(next);
+  }, [selected]);
 
   // The selected card was removed: fall back to Explain.
   useEffect(() => {
@@ -65,14 +76,14 @@ export function TranslatorPane({ view, onChange }: { view: SettingsView; onChang
     } catch (e) {
       setStatus(String(e));
     }
-    onChange();
+    await onChange();
   };
 
-  const add = (lang: Lang) =>
-    act(async () => {
-      await settings.addTarget(lang);
-      setSelected(`translate:${lang}`);
-    }, `${LANG_NAMES[lang]} added`);
+  const add = async (lang: Lang) => {
+    await act(() => settings.addTarget(lang), `${LANG_NAMES[lang]} added`);
+    // After the reload, so the new card is in `view` when it is selected.
+    setSelected(`translate:${lang}`);
+  };
 
   const save = async (next: PromptSpec) => {
     setSpec(next);

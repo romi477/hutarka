@@ -4,7 +4,7 @@ Guidance for AI coding assistants working in this repository. See `README.md` fo
 
 ## Status
 
-Step 01 done: the `hutarka` CLI and the `hutarka-llm` crate (`crates/`). Step 02 done: the app (`app/`) with the selection translator: menu bar icon, popup, Settings (General, Translator prompts, LLM key), lookup journal. No dictation or meetings yet.
+Step 01 done: the `hutarka` CLI and the `hutarka-llm` crate (`crates/`). Step 02 done: the app (`app/`) with the selection translator: menu bar icon, popup, Settings (General with hotkey and key, Translation with target languages and prompts, empty Audio capture and Speech), lookup journal. No dictation or meetings yet.
 
 ```bash
 cargo test --workspace
@@ -138,11 +138,11 @@ A replacement for Reverso Context: select text anywhere, press a hotkey, a popup
 
 - **Getting the selection**: Accessibility API (`AXSelectedText` of the focused element) first; fallback: save clipboard, send ⌘C, read, restore (Handy's clipboard code). Works in native apps, PDFs, browsers (fallback path).
 - **Word vs. text**: a single word or short phrase gets a dictionary-style answer (meanings with part of speech, a few example sentences, common collocations), longer text gets a plain translation. Decided by length; two prompts, both stored in Settings.
-- **Languages**: English, Polish, Russian. Directions: EN → RU (default for English), EN → PL, PL → EN, RU → EN.
-- **Direction**: automatic. English selection → Russian; Polish or Russian → English. The popup's direction button opens a menu of the four directions; the last manual choice for English (RU or PL) is remembered.
+- **Target languages**: cards in Settings › Translation, chosen from a fixed list in code (English, Russian, Belarusian, Polish, German, Spanish, Greek, Italian, French). Each card has its own translation prompt; one card is the default.
+- **Source language**: never detected by Hutarka; the model works it out. Every lookup starts with the default target; the popup's target button (menu of the cards, ⌘1…⌘9) switches it for that lookup only. Translating into the language the text is already in is not guarded against: the author switches by hand.
 - **Explain**: a checkbox in the popup (⌘E), remembered between lookups. On, the answer is a deep explanation instead of a plain translation: for a word, meanings plus several common sentences using it, each with a translation, to learn how it is used in context; for a phrase, its idioms and grammar. One more prompt, stored in Settings.
-- **Prompts are editable in Settings › Translator**: one translation prompt per direction (four), plus the word-lookup prompt and the Explain prompt, which take `{from}` and `{to}` placeholders. Starting values live in the default settings file. The menu bar has "Translator prompts…", which opens that pane.
-- **Popup**: variant A of the mockups. Small non-activating panel near the mouse, does not steal focus; header with the direction button and model/latency; streams the answer as it arrives; footer with Copy (⌘C), Replace (↵: paste the translation over the selection in editable fields) and the Explain checkbox; Esc or click outside closes it. Follows the system light/dark theme.
+- **Prompts are editable in Settings › Translation**: one translation prompt per target card (new cards get one from a template), plus the word-lookup prompt and the Explain prompt, which take a `{to}` placeholder (`{from}` in older edited prompts renders as "the original language"). Starting values live in the default settings file. The menu bar has "Translator prompts…", which opens that pane.
+- **Popup**: variant A of the mockups. Small non-activating panel near the mouse, does not steal focus; header with the target-language button and model/latency; streams the answer as it arrives; footer with Copy (⌘C), Replace (↵: paste the translation over the selection in editable fields) and the Explain checkbox; Esc or click outside closes it. Follows the system light/dark theme.
 - **Hotkey**: its own trigger in the shortcut layer, same options as modes (key combo, single key, double-tap).
 - Results are written to the History journal (`kind: lookup`) so looked-up words can be reviewed later.
 

@@ -25,7 +25,7 @@ const ERROR_TITLES: Record<string, string> = {
 
 const ERROR_HINTS: Record<string, string> = {
   no_key:
-    "Add your key in Settings › LLM to translate. It is stored in app settings, not in ~/Hutarka.",
+    "Add your key in Settings › General to translate. It is stored in app settings, not in ~/Hutarka.",
   not_trusted:
     "Allow Hutarka in System Settings › Privacy & Security › Accessibility, then try again.",
 };
