@@ -215,7 +215,7 @@ fn fresh(id: u64, settings: &Settings, to: Lang, status: Status) -> Snapshot {
 }
 
 /// Opens the popup with an empty source field to type into.
-pub fn compose(app: &AppHandle) {
+fn compose(app: &AppHandle) {
     let state = app.state::<AppState>();
     state.abort_task();
     let id = state.sessions.begin();

@@ -40,9 +40,9 @@ The app has no Dock icon. It lives in the menu bar.
 
 ## Translating a selection
 
-Select text, press **⌃⌥T** (or menu bar › Translate selection).
+Select text, press **⌃⌥T** (or menu bar › Translate).
 
-**Typing instead of selecting.** Press the hotkey with nothing selected (or menu bar › Type text to translate…): the popup opens with an empty field. Type or paste, then ⌘↵ or Translate.
+**Typing instead of selecting.** Press the hotkey or menu bar › Translate with nothing selected: the popup opens with an empty field, already open for typing. Type or paste, then ⌘↵ or Translate.
 
 **The original** sits above the answer, collapsed to one line. Click it to open it, edit the text or write a new one, and translate again with ⌘↵ into the language shown in the header.
 
@@ -72,7 +72,7 @@ The header holds the target language, the Explain checkbox, the model with the t
 Menu bar › Settings… (⌘,).
 
 - **General**: the hotkey (for example `Ctrl+Alt+T`, `Cmd+Shift+Y`) and the Anthropic API key.
-- **Translation** (also menu bar › Translator prompts…): the languages you translate into and every prompt the translator sends.
+- **Translation** (also the popup's language menu › Edit prompts…): the languages you translate into and every prompt the translator sends.
   - **Translate into** lists your languages (shipped: English, Russian, Polish). **Add language…** adds one of English, Russian, Belarusian, Polish, German, Spanish, Greek, Italian, French, with a ready translation prompt. Each language has its own prompt, model and effort. **Make default** makes every lookup start with that language; **Delete** removes a language (not the default one). The order here is the order of the popup menu and of ⌘1 … ⌘9.
   - **Word lookup** and **Explain** are shared by all languages; `{to}` in them is the language chosen in the popup.
   - A prompt is saved when you leave the field; **Reset to default** brings back the shipped text.

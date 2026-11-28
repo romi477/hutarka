@@ -141,7 +141,7 @@ A replacement for Reverso Context: select text anywhere, press a hotkey, a popup
 - **Target languages**: cards in Settings › Translation, chosen from a fixed list in code (English, Russian, Belarusian, Polish, German, Spanish, Greek, Italian, French). Each card has its own translation prompt; one card is the default.
 - **Source language**: never detected by Hutarka; the model works it out. Every lookup starts with the default target; the popup's target button (menu of the cards, ⌘1…⌘9) switches it for that lookup only. Translating into the language the text is already in is not guarded against: the author switches by hand.
 - **Explain**: a checkbox in the popup (⌘E), remembered between lookups. On, the answer is a deep explanation instead of a plain translation: for a word, meanings plus several common sentences using it, each with a translation, to learn how it is used in context; for a phrase, its idioms and grammar. One more prompt, stored in Settings.
-- **Prompts are editable in Settings › Translation**: one translation prompt per target card (new cards get one from a template), plus the word-lookup prompt and the Explain prompt, which take a `{to}` placeholder (`{from}` in older edited prompts renders as "the original language"). Starting values live in the default settings file. The menu bar has "Translator prompts…", which opens that pane.
+- **Prompts are editable in Settings › Translation**: one translation prompt per target card (new cards get one from a template), plus the word-lookup prompt and the Explain prompt, which take a `{to}` placeholder (`{from}` in older edited prompts renders as "the original language"). Starting values live in the default settings file. The popup's language menu has "Edit prompts…", which opens that pane.
 - **Popup**: variant A of the mockups. Small non-activating panel near the mouse, does not steal focus; header with the target-language button and model/latency; streams the answer as it arrives; footer with Copy (⌘C), Replace (↵: paste the translation over the selection in editable fields) and the Explain checkbox; Esc or click outside closes it. Follows the system light/dark theme.
 - **Hotkey**: its own trigger in the shortcut layer, same options as modes (key combo, single key, double-tap).
 - Results are written to the History journal (`kind: lookup`) so looked-up words can be reviewed later.
@@ -154,7 +154,7 @@ A replacement for Reverso Context: select text anywhere, press a hotkey, a popup
   - **Record meeting** submenu with two choices: "Audio only" and "Live transcript" (see Meetings); Stop. The current meeting shows its title, duration and mode.
   - **Transcribe file**: pick an audio/video file, get a transcript in History (Handy already decodes files via symphonia).
   - Current mode list (which key triggers what), at a glance.
-  - Open History, Settings, Translator prompts…, Quit.
+  - Translate (the selection, or an empty field when nothing is selected), Open History, Settings, Quit.
   - Drop Handy's tray language submenu, update check and other distribution leftovers.
 - **History window**: one place for all records, read from the JSONL journals. Spokenly's History is the reference: filter chips (All, Dictation, Files, Meetings, one chip per mode), search, newest/oldest sort.
   - Dictations: final text with the raw ASR text under it (dimmed), target app, age, recording duration; copy either text.
